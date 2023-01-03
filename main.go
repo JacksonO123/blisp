@@ -68,7 +68,6 @@ func GetBlocks(code string) []string {
 
 func flatten(block string) string {
 	res := block[1 : len(block)-1]
-	fmt.Println("flattening", block, "|", res)
 	inString := false
 	var starts []int
 	chars := strings.Split(res, "")
@@ -82,7 +81,6 @@ func flatten(block string) string {
 			} else if Eq(chars[i], ")") {
 				slice := res[starts[len(starts)-1] : i+1]
 				hasReturn, val := eval(slice)
-				fmt.Println("val", val)
 				if hasReturn {
 					start := starts[len(starts)-1]
 					res = res[:start] + val + res[i+1:]
@@ -121,18 +119,15 @@ func SplitParams(str string) []string {
 }
 
 func eval(code string) (bool, string) {
-	fmt.Printf("code:\n%s\n", code)
 	blocks := GetBlocks(code)
 	hasReturn := false
 	toReturn := ""
-	fmt.Println("blocks:", blocks)
 	if len(blocks) != 1 {
 		for i, block := range blocks {
 			_, blocks[i] = eval(block)
 		}
 	} else {
 		flatBlock := flatten(blocks[0])
-		fmt.Println("flat block", flatBlock)
 		parts := SplitParams(flatBlock)
 		params := parts[1:]
 		switch parts[0] {

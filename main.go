@@ -157,6 +157,18 @@ func Eval(code string) (bool, string) {
 				hasReturn = true
 				toReturn = fmt.Sprint(Divide(params...))
 			}
+		case "eval":
+			{
+				if len(params) == 1 {
+					hasReturn, toReturn = Eval(params[0][1 : len(params[0])-1])
+				} else {
+					for _, v := range params {
+						if len(v) > 0 {
+							Eval(v[1 : len(v)-1])
+						}
+					}
+				}
+			}
 		default:
 			{
 				fmt.Println("default", parts)

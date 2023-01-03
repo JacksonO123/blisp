@@ -66,7 +66,7 @@ func GetBlocks(code string) []string {
 	return blocks
 }
 
-func flatten(block string) string {
+func Flatten(block string) string {
 	res := block[1 : len(block)-1]
 	inString := false
 	var starts []int
@@ -80,7 +80,7 @@ func flatten(block string) string {
 				starts = append(starts, i)
 			} else if Eq(chars[i], ")") {
 				slice := res[starts[len(starts)-1] : i+1]
-				hasReturn, val := eval(slice)
+				hasReturn, val := Eval(slice)
 				if hasReturn {
 					start := starts[len(starts)-1]
 					res = res[:start] + val + res[i+1:]
@@ -118,16 +118,16 @@ func SplitParams(str string) []string {
 	return res
 }
 
-func eval(code string) (bool, string) {
+func Eval(code string) (bool, string) {
 	blocks := GetBlocks(code)
 	hasReturn := false
 	toReturn := ""
 	if len(blocks) != 1 {
 		for i, block := range blocks {
-			_, blocks[i] = eval(block)
+			_, blocks[i] = Eval(block)
 		}
 	} else {
-		flatBlock := flatten(blocks[0])
+		flatBlock := Flatten(blocks[0])
 		parts := SplitParams(flatBlock)
 		params := parts[1:]
 		switch parts[0] {
@@ -177,5 +177,5 @@ func main() {
 	}
 	dat, err := os.ReadFile(fileName)
 	check(err)
-	eval(string(dat))
+	Eval(string(dat))
 }

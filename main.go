@@ -173,6 +173,9 @@ func main() {
 	var fileName string
 	if len(args) > 0 {
 		fileName = args[0]
+		if strings.Index(fileName, ".blisp") < 0 {
+			fileName += ".blisp"
+		}
 	} else {
 		fileName = "main.blisp"
 	}

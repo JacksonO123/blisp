@@ -133,6 +133,8 @@ func Eval(code string) (bool, string) {
 		switch parts[0] {
 		case "print":
 			{
+				hasReturn = true
+				toReturn = "\"(printing " + strings.Join(params, ", ") + ")\""
 				Print(parts[1:]...)
 			}
 		case "+":

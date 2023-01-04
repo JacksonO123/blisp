@@ -1,7 +1,1 @@
-(print
-	3
-	4
-	(+ 2 10 (- 6 (/ 8 2)))     
-	"hehe 2")
-
-(print (- 6 (eval "(+ 2 1)")))
+(eval "(var h 3)(print h)")

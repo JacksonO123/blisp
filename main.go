@@ -7,6 +7,25 @@ import (
 	"strings"
 )
 
+type VariableType int
+
+const (
+	Int VariableType = iota
+	String
+	Double
+	Bool
+)
+
+type variable struct {
+	variableType VariableType
+	name         string
+	value        string
+}
+
+type dataStore struct {
+	vars map[string]variable
+}
+
 func check(e error) {
 	if e != nil {
 		log.Fatal(e)
@@ -15,6 +34,15 @@ func check(e error) {
 
 func Eq(s1 string, s2 string) bool {
 	return strings.Compare(s1, s2) == 0
+}
+
+func StrArrIncludes(arr []string, val string) bool {
+	for _, v := range arr {
+		if Eq(v, val) {
+			return true
+		}
+	}
+	return false
 }
 
 func StringArrMap(arr []string, f func(string) string) []string {
@@ -66,7 +94,7 @@ func GetBlocks(code string) []string {
 	return blocks
 }
 
-func Flatten(block string) string {
+func Flatten(block string, ds *dataStore) string {
 	res := block[1 : len(block)-1]
 	inString := false
 	var starts []int
@@ -80,7 +108,7 @@ func Flatten(block string) string {
 				starts = append(starts, i)
 			} else if Eq(chars[i], ")") {
 				slice := res[starts[len(starts)-1] : i+1]
-				hasReturn, val := Eval(slice)
+				hasReturn, val := Eval(slice, ds)
 				if hasReturn {
 					start := starts[len(starts)-1]
 					res = res[:start] + val + res[i+1:]
@@ -118,16 +146,16 @@ func SplitParams(str string) []string {
 	return res
 }
 
-func Eval(code string) (bool, string) {
+func Eval(code string, ds *dataStore) (bool, string) {
 	blocks := GetBlocks(code)
 	hasReturn := false
 	toReturn := ""
 	if len(blocks) != 1 {
 		for i, block := range blocks {
-			_, blocks[i] = Eval(block)
+			_, blocks[i] = Eval(block, ds)
 		}
 	} else {
-		flatBlock := Flatten(blocks[0])
+		flatBlock := Flatten(blocks[0], ds)
 		parts := SplitParams(flatBlock)
 		params := parts[1:]
 		switch parts[0] {
@@ -135,39 +163,43 @@ func Eval(code string) (bool, string) {
 			{
 				hasReturn = true
 				toReturn = "\"(printing " + strings.Join(params, ", ") + ")\""
-				Print(parts[1:]...)
+				Print(ds, parts[1:]...)
 			}
 		case "+":
 			{
 				hasReturn = true
-				toReturn = fmt.Sprint(Add(params...))
+				toReturn = fmt.Sprint(Add(ds, params...))
 			}
 		case "-":
 			{
 				hasReturn = true
-				toReturn = fmt.Sprint(Sub(params...))
+				toReturn = fmt.Sprint(Sub(ds, params...))
 			}
 		case "*":
 			{
 				hasReturn = true
-				toReturn = fmt.Sprint(Mult(params...))
+				toReturn = fmt.Sprint(Mult(ds, params...))
 			}
 		case "/":
 			{
 				hasReturn = true
-				toReturn = fmt.Sprint(Divide(params...))
+				toReturn = fmt.Sprint(Divide(ds, params...))
 			}
 		case "eval":
 			{
 				if len(params) == 1 {
-					hasReturn, toReturn = Eval(params[0][1 : len(params[0])-1])
+					hasReturn, toReturn = Eval(params[0][1:len(params[0])-1], ds)
 				} else {
 					for _, v := range params {
 						if len(v) > 0 {
-							Eval(v[1 : len(v)-1])
+							Eval(v[1:len(v)-1], ds)
 						}
 					}
 				}
+			}
+		case "var":
+			{
+				MakeVar(params[0], params[1], ds)
 			}
 		default:
 			{
@@ -191,5 +223,7 @@ func main() {
 	}
 	dat, err := os.ReadFile(fileName)
 	check(err)
-	Eval(string(dat))
+	ds := new(dataStore)
+	ds.vars = make(map[string]variable)
+	Eval(string(dat), ds)
 }

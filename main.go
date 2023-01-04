@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 )
 
 type VariableType int
@@ -53,15 +55,43 @@ func StringArrMap(arr []string, f func(string) string) []string {
 	return newArr
 }
 
+func GetVariableInfo(name string, val string) variable {
+	var variable variable
+	variable.name = name
+	if strings.Index(val, "\"") > 0 {
+		variable.variableType = String
+	} else if Eq(val, "true") || Eq(val, "false") {
+		variable.variableType = Bool
+	} else {
+		num, err := strconv.ParseFloat(val, 64)
+		if err != nil {
+			numStr := fmt.Sprint(num)
+			if strings.Index(numStr, ".") > 0 {
+				variable.variableType = Double
+			} else {
+				variable.variableType = Int
+			}
+		}
+	}
+	variable.value = val
+	return variable
+}
+
 func GetBlocks(code string) []string {
 	temp := ""
 	var blocks []string
 	inString := false
 	parenScopes := 0
 	chars := strings.Split(code, "")
-	for _, v := range chars {
+	for i, v := range chars {
 		if Eq(v, "\"") {
-			inString = !inString
+			if i > 0 {
+				if chars[i-1] != "\\" {
+					inString = !inString
+				}
+			} else {
+				inString = !inString
+			}
 		}
 		if Eq(v, "\t") {
 			if len(temp) > 0 && !Eq(strings.Split(temp, "")[len(temp)-1], " ") {
@@ -87,6 +117,7 @@ func GetBlocks(code string) []string {
 		}
 		if parenScopes == 0 && strings.TrimSpace(temp) != "" {
 			temp += ")"
+			temp = strings.Replace(temp, "\\\"", "\"", -1)
 			blocks = append(blocks, temp)
 			temp = ""
 		}
@@ -94,7 +125,7 @@ func GetBlocks(code string) []string {
 	return blocks
 }
 
-func Flatten(block string, ds *dataStore) string {
+func Flatten(ds *dataStore, block string) string {
 	res := block[1 : len(block)-1]
 	inString := false
 	var starts []int
@@ -108,7 +139,7 @@ func Flatten(block string, ds *dataStore) string {
 				starts = append(starts, i)
 			} else if Eq(chars[i], ")") {
 				slice := res[starts[len(starts)-1] : i+1]
-				hasReturn, val := Eval(slice, ds)
+				hasReturn, val := Eval(ds, slice)
 				if hasReturn {
 					start := starts[len(starts)-1]
 					res = res[:start] + val + res[i+1:]
@@ -127,9 +158,16 @@ func SplitParams(str string) []string {
 	res := []string{}
 	temp := ""
 	inString := false
-	for _, v := range strings.Split(str, "") {
+	strChars := strings.Split(str, "")
+	for i, v := range strChars {
 		if Eq(v, "\"") {
-			inString = !inString
+			if i > 0 {
+				if strChars[i-1] != "\\" {
+					inString = !inString
+				}
+			} else {
+				inString = !inString
+			}
 		}
 		if !inString {
 			if Eq(v, " ") {
@@ -146,63 +184,90 @@ func SplitParams(str string) []string {
 	return res
 }
 
-func Eval(code string, ds *dataStore) (bool, string) {
+func QuoteToQuoteLiteral(str string) string {
+	return strings.Replace(str, "\"", "\\\"", -1)
+}
+
+func QuoteLiteralToQuote(str string) string {
+	return strings.Replace(str, "\\\"", "\"", -1)
+}
+
+func Eval(ds *dataStore, code string) (bool, string) {
 	blocks := GetBlocks(code)
-	hasReturn := false
+	hasReturn := true
 	toReturn := ""
 	if len(blocks) != 1 {
 		for i, block := range blocks {
-			_, blocks[i] = Eval(block, ds)
+			_, blocks[i] = Eval(ds, block)
 		}
 	} else {
-		flatBlock := Flatten(blocks[0], ds)
+		flatBlock := Flatten(ds, blocks[0])
 		parts := SplitParams(flatBlock)
 		params := parts[1:]
 		switch parts[0] {
 		case "print":
 			{
-				hasReturn = true
 				toReturn = "\"(printing " + strings.Join(params, ", ") + ")\""
 				Print(ds, parts[1:]...)
 			}
 		case "+":
 			{
-				hasReturn = true
 				toReturn = fmt.Sprint(Add(ds, params...))
 			}
 		case "-":
 			{
-				hasReturn = true
 				toReturn = fmt.Sprint(Sub(ds, params...))
 			}
 		case "*":
 			{
-				hasReturn = true
 				toReturn = fmt.Sprint(Mult(ds, params...))
 			}
 		case "/":
 			{
-				hasReturn = true
 				toReturn = fmt.Sprint(Divide(ds, params...))
+			}
+		case "%":
+			{
+				if len(params) != 2 {
+					log.Fatal("Invalid number of parameters to \"%\". Expected 2 found " + fmt.Sprint(len(params)))
+				}
+				toReturn = fmt.Sprint(Mod(ds, params[0], params[1]))
 			}
 		case "eval":
 			{
 				if len(params) == 1 {
-					hasReturn, toReturn = Eval(params[0][1:len(params[0])-1], ds)
+					hasReturn, toReturn = Eval(ds, params[0][1:len(params[0])-1])
+					if !hasReturn {
+						toReturn = "\"(evaluating " + QuoteToQuoteLiteral(params[0]) + ")\""
+					}
 				} else {
+					toReturn = "\"(evaluating " + QuoteToQuoteLiteral(strings.Join(params, ", ")) + ")\""
 					for _, v := range params {
 						if len(v) > 0 {
-							Eval(v[1:len(v)-1], ds)
+							Eval(ds, v[1:len(v)-1])
 						}
 					}
 				}
 			}
 		case "var":
 			{
-				MakeVar(params[0], params[1], ds)
+				if len(params) != 2 {
+					log.Fatal("Invalid number of parameters to \"var\". Expected 2 found " + fmt.Sprint(len(params)))
+				}
+				toReturn = "\"(initializing " + QuoteToQuoteLiteral(params[0]) + " to " + QuoteToQuoteLiteral(params[1]) + ")\""
+				MakeVar(ds, params[0], params[1])
+			}
+		case "set":
+			{
+				if len(params) != 2 {
+					log.Fatal("Invalid number of parameters to \"set\". Expected 2 found " + fmt.Sprint(len(params)))
+				}
+				toReturn = "\"(setting " + QuoteToQuoteLiteral(params[0]) + " to " + QuoteToQuoteLiteral(params[1]) + ")\""
+				SetVar(ds, params[0], params[1])
 			}
 		default:
 			{
+				hasReturn = false
 				fmt.Println("default", parts)
 			}
 		}
@@ -212,7 +277,8 @@ func Eval(code string, ds *dataStore) (bool, string) {
 
 func main() {
 	args := os.Args[1:]
-	var fileName string
+	fileName := ""
+	benchmark := false
 	if len(args) > 0 {
 		fileName = args[0]
 		if strings.Index(fileName, ".blisp") < 0 {
@@ -221,9 +287,20 @@ func main() {
 	} else {
 		fileName = "main.blisp"
 	}
+	fmt.Println("Running [" + fileName + "]")
+	if len(args) > 1 {
+		flags := args[1:]
+		if StrArrIncludes(flags, "-b") {
+			benchmark = true
+		}
+	}
 	dat, err := os.ReadFile(fileName)
 	check(err)
 	ds := new(dataStore)
 	ds.vars = make(map[string]variable)
-	Eval(string(dat), ds)
+	start := time.Now()
+	Eval(ds, string(dat))
+	if benchmark {
+		fmt.Println("Finished in " + fmt.Sprint(time.Now().Sub(start)))
+	}
 }

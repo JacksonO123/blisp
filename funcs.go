@@ -7,6 +7,10 @@ import (
 	"strings"
 )
 
+func FormatPrint(str string) string {
+	return QuoteLiteralToQuote(str)
+}
+
 func Print(ds *dataStore, params ...string) {
 	res := []string{}
 	for _, v := range params {
@@ -26,22 +30,27 @@ func Print(ds *dataStore, params ...string) {
 			}
 		}
 	}
-	fmt.Println(strings.Join(res, ", "))
+	fmt.Println(FormatPrint(strings.Join(res, ", ")))
+}
+
+func GetFloat64FromString(ds *dataStore, str string) float64 {
+	n, err := strconv.ParseFloat(str, 64)
+	if err != nil {
+		if val, ok := ds.vars[str]; ok {
+			if val.variableType == Int || val.variableType == Double {
+				n, _ = strconv.ParseFloat(val.value, 64)
+			} else {
+				log.Fatal(err)
+			}
+		}
+	}
+	return n
 }
 
 func GetFloat64FromStrings(ds *dataStore, strs ...string) []float64 {
 	var nums []float64
 	for _, v := range strs {
-		n, err := strconv.ParseFloat(v, 64)
-		if err != nil {
-			if val, ok := ds.vars[v]; ok {
-				if val.variableType == Int || val.variableType == Double {
-					n, _ = strconv.ParseFloat(val.value, 64)
-				} else {
-					log.Fatal(err)
-				}
-			}
-		}
+		n := GetFloat64FromString(ds, v)
 		nums = append(nums, n)
 	}
 	return nums
@@ -83,9 +92,27 @@ func Divide(ds *dataStore, params ...string) float64 {
 	return res
 }
 
-func MakeVar(name string, val string, ds *dataStore) {
+func Mod(ds *dataStore, num1 string, num2 string) int {
+	val1 := GetFloat64FromString(ds, num1)
+	val2 := GetFloat64FromString(ds, num2)
+	val1Str := fmt.Sprint(val1)
+	val2Str := fmt.Sprint(val2)
+	v1 := GetVariableInfo("_1", val1Str)
+	v2 := GetVariableInfo("_2", val2Str)
+	if v1.variableType != Int {
+		log.Fatal(val1Str + " is not an int")
+	} else if v2.variableType != Int {
+		log.Fatal(val2Str + " is not an int")
+	}
+	return int(val1) % int(val2)
+}
+
+func MakeVar(ds *dataStore, name string, val string) {
+	if _, ok := ds.vars[name]; ok {
+		log.Fatal("Variable already initialized: " + name)
+		return
+	}
 	reserved := []string{"print", "+", "-", "*", "/", "eval", "var"}
-	nameChars := strings.Split(name, "")
 	if StrArrIncludes(reserved, val) {
 		log.Fatal("Variable name " + val + " is reserved")
 		return
@@ -96,29 +123,19 @@ func MakeVar(name string, val string, ds *dataStore) {
 		return
 	}
 
-	_, err := strconv.ParseFloat(nameChars[0], 64)
+	_, err := strconv.ParseFloat(name, 64)
 	if err == nil {
-		log.Fatal("Variable name cannot start with a number")
+		log.Fatal("Variable named " + name + " cannot be a number")
 		return
 	}
 
-	var variable variable
-	variable.name = name
-	if strings.Index(val, "\"") > 0 {
-		variable.variableType = String
-	} else if Eq(val, "true") || Eq(val, "false") {
-		variable.variableType = Bool
-	} else {
-		num, err := strconv.ParseFloat(val, 64)
-		if err != nil {
-			numStr := fmt.Sprint(num)
-			if strings.Index(numStr, ".") > 0 {
-				variable.variableType = Double
-			} else {
-				variable.variableType = Int
-			}
-		}
+	ds.vars[name] = GetVariableInfo(name, val)
+}
+
+func SetVar(ds *dataStore, name string, val string) {
+	if _, ok := ds.vars[name]; !ok {
+		log.Fatal("Variable not initialized: " + name)
+		return
 	}
-	variable.value = val
-	ds.vars[name] = variable
+	ds.vars[name] = GetVariableInfo(name, val)
 }

@@ -1,1 +1,3 @@
-(eval "(var h 3)(print h)")
+(print (var h 3))
+(print (set h 4))
+(print (print h "epic"))

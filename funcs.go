@@ -19,15 +19,14 @@ func Print(ds *dataStore, params ...string) {
 			res = append(res, v)
 			continue
 		}
-		num, err := strconv.ParseFloat(v, 64)
+		_, err := strconv.ParseFloat(v, 64)
 		if err == nil {
-			res = append(res, fmt.Sprint(num))
-			continue
+			res = append(res, v)
 		} else {
 			if val, ok := ds.vars[v]; ok {
 				res = append(res, val.value)
 			} else {
-				log.Fatal("unknown value: " + v)
+				log.Fatal("Unknown value: " + v)
 			}
 		}
 	}
@@ -95,7 +94,7 @@ func Divide(ds *dataStore, params ...string) float64 {
 
 func Exp(ds *dataStore, base string, exp string) float64 {
 	num1 := GetFloat64FromString(ds, base)
-	num2 := GetFloat64FromString(ds, base)
+	num2 := GetFloat64FromString(ds, exp)
 	return math.Pow(num1, num2)
 }
 

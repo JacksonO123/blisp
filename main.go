@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -69,8 +70,7 @@ func GetVariableInfo(name string, val string) variable {
 	} else {
 		num, err := strconv.ParseFloat(val, 64)
 		if err != nil {
-			numStr := fmt.Sprint(num)
-			if strings.Index(numStr, ".") > 0 {
+			if math.Floor(num) != num {
 				variable.variableType = Float
 			} else {
 				variable.variableType = Int
@@ -193,10 +193,10 @@ func Flatten(ds *dataStore, block string) string {
 				if hasReturn {
 					ds.evalCache[slice] = val
 					res = res[:starts[len(starts)-1]] + val + res[i+1:]
-					i -= len(slice) - len(val)
 					if len(starts)-1 == 0 {
 						return res
 					}
+					i -= len(slice) - len(val)
 					starts = starts[:len(starts)-1]
 				}
 			}
@@ -319,7 +319,7 @@ func Eval(ds *dataStore, code string) (bool, string) {
 		case "%":
 			{
 				if len(params) != 2 {
-					log.Fatal("Invalid number of parameters to \"%\". Expected 2 found " + fmt.Sprint(len(params)))
+					log.Fatal("Invalid number of parameters to \"%\". Expected 2 found", len(params))
 				}
 				toReturn = fmt.Sprint(Mod(ds, params[0], params[1]))
 			}
@@ -342,7 +342,7 @@ func Eval(ds *dataStore, code string) (bool, string) {
 		case "var":
 			{
 				if len(params) != 2 {
-					log.Fatal("Invalid number of parameters to \"var\". Expected 2 found " + fmt.Sprint(len(params)))
+					log.Fatal("Invalid number of parameters to \"var\". Expected 2 found", len(params))
 				}
 				toReturn = "\"(initializing " + QuoteToQuoteLiteral(params[0]) + " to " + QuoteToQuoteLiteral(params[1]) + ")\""
 				MakeVar(ds, params[0], params[1])
@@ -350,7 +350,7 @@ func Eval(ds *dataStore, code string) (bool, string) {
 		case "set":
 			{
 				if len(params) != 2 {
-					log.Fatal("Invalid number of parameters to \"set\". Expected 2 found " + fmt.Sprint(len(params)))
+					log.Fatal("Invalid number of parameters to \"set\". Expected 2 found", len(params))
 				}
 				toReturn = "\"(setting " + QuoteToQuoteLiteral(params[0]) + " to " + QuoteToQuoteLiteral(params[1]) + ")\""
 				SetVar(ds, params[0], params[1])
@@ -358,7 +358,7 @@ func Eval(ds *dataStore, code string) (bool, string) {
 		case "free":
 			{
 				if len(params) != 1 {
-					log.Fatal("Invalid number of parameters to \"free\". Expected 1 found " + fmt.Sprint(len(params)))
+					log.Fatal("Invalid number of parameters to \"free\". Expected 1 found", len(params))
 				}
 				toReturn = "\"(freeing " + QuoteToQuoteLiteral(params[0]) + ")\""
 				FreeVar(ds, params[0])
@@ -366,14 +366,14 @@ func Eval(ds *dataStore, code string) (bool, string) {
 		case "type":
 			{
 				if len(params) != 1 {
-					log.Fatal("Invalid number of parameters to \"type\". Expected 1 found " + fmt.Sprint(len(params)))
+					log.Fatal("Invalid number of parameters to \"type\". Expected 1 found", len(params))
 				}
 				toReturn = "\"" + GetValueType(ds, params[0]) + "\""
 			}
 		case "get":
 			{
 				if len(params) != 2 {
-					log.Fatal("Invalid number of parameters to \"get\". Expected 2 found " + fmt.Sprint(len(params)))
+					log.Fatal("Invalid number of parameters to \"get\". Expected 2 found", len(params))
 				}
 				toReturn = GetValueFromList(ds, params[0], params[1])
 			}

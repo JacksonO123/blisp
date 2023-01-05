@@ -115,7 +115,7 @@ func Mod(ds *dataStore, num1 string, num2 string) int {
 	return int(val1) % int(val2)
 }
 
-func MakeVar(ds *dataStore, name string, val string) {
+func MakeVar(ds *dataStore, scopes int, name string, val string) {
 	if _, ok := ds.vars[name]; ok {
 		log.Fatal("Variable already initialized: " + name)
 		return
@@ -138,6 +138,11 @@ func MakeVar(ds *dataStore, name string, val string) {
 	}
 
 	ds.vars[name] = GetVariableInfo(name, val)
+	for len(ds.scopedVars) < scopes {
+		ds.scopedVars = append(ds.scopedVars, []string{})
+	}
+	fmt.Println("Making in", scopes-1)
+	ds.scopedVars[scopes-1] = append(ds.scopedVars[scopes-1], name)
 }
 
 func SetVar(ds *dataStore, name string, val string) {

@@ -28,7 +28,8 @@ type variable struct {
 }
 
 type dataStore struct {
-	vars map[string]variable
+	vars       map[string]variable
+	scopedVars [][]string
 }
 
 func check(e error) {
@@ -169,6 +170,19 @@ func GetBlocks(code string) []string {
 	return blocks
 }
 
+func RemoveScopedVars(ds *dataStore, keepScopes int) {
+	for keepScopes < len(ds.scopedVars) {
+		if len(ds.scopedVars) == 0 {
+			break
+		}
+		arrToFree := ds.scopedVars[len(ds.scopedVars)-1]
+		for _, v := range arrToFree {
+			FreeVar(ds, v)
+		}
+		ds.scopedVars = ds.scopedVars[:len(ds.scopedVars)-1]
+	}
+}
+
 func Flatten(ds *dataStore, block string) string {
 	res := block[1 : len(block)-1]
 	inString := false
@@ -187,9 +201,13 @@ func Flatten(ds *dataStore, block string) string {
 				starts = append(starts, i)
 			} else if res[i] == ')' {
 				slice := res[starts[len(starts)-1] : i+1]
-				hasReturn, val := Eval(ds, slice)
+				hasReturn, val := Eval(ds, slice, len(starts)+1)
 				if hasReturn {
 					res = res[:starts[len(starts)-1]] + val + res[i+1:]
+					fmt.Println(len(starts), len(ds.scopedVars))
+					// if len(starts)+1 < len(ds.scopedVars) {
+					// 	RemoveScopedVars(ds, len(ds.scopedVars)-len(starts))
+					// }
 					if len(starts)-1 == 0 {
 						return res
 					}
@@ -259,13 +277,15 @@ func QuoteLiteralToQuote(str string) string {
 	return strings.Replace(str, "\\\"", "\"", -1)
 }
 
-func Eval(ds *dataStore, code string) (bool, string) {
+func Eval(ds *dataStore, code string, scopes int) (bool, string) {
+	fmt.Println("#", code, "["+fmt.Sprint(scopes)+"]", ds.scopedVars)
 	blocks := GetBlocks(code)
 	hasReturn := true
 	toReturn := ""
 	if len(blocks) != 1 {
 		for _, block := range blocks {
-			Eval(ds, block)
+			Eval(ds, block, scopes+1)
+			RemoveScopedVars(ds, 1)
 		}
 	} else {
 		flatBlock := Flatten(ds, blocks[0])
@@ -310,7 +330,7 @@ func Eval(ds *dataStore, code string) (bool, string) {
 		case "eval":
 			{
 				if len(params) == 1 {
-					hasReturn, toReturn = Eval(ds, params[0][1:len(params[0])-1])
+					hasReturn, toReturn = Eval(ds, params[0][1:len(params[0])-1], scopes)
 					if !hasReturn {
 						toReturn = "\"(evaluating " + QuoteToQuoteLiteral(params[0]) + ")\""
 					}
@@ -318,7 +338,7 @@ func Eval(ds *dataStore, code string) (bool, string) {
 					toReturn = "\"(evaluating " + QuoteToQuoteLiteral(strings.Join(params, ", ")) + ")\""
 					for _, v := range params {
 						if len(v) > 0 {
-							Eval(ds, v[1:len(v)-1])
+							Eval(ds, v[1:len(v)-1], scopes)
 						}
 					}
 				}
@@ -329,7 +349,7 @@ func Eval(ds *dataStore, code string) (bool, string) {
 					log.Fatal("Invalid number of parameters to \"var\". Expected 2 found", len(params))
 				}
 				toReturn = "\"(initializing " + QuoteToQuoteLiteral(params[0]) + " to " + QuoteToQuoteLiteral(params[1]) + ")\""
-				MakeVar(ds, params[0], params[1])
+				MakeVar(ds, scopes, params[0], params[1])
 			}
 		case "set":
 			{
@@ -396,8 +416,9 @@ func main() {
 	check(err)
 	ds := new(dataStore)
 	ds.vars = make(map[string]variable)
+	ds.scopedVars = [][]string{}
 	start := time.Now()
-	Eval(ds, string(dat))
+	Eval(ds, string(dat), 0)
 	if benchmark {
 		fmt.Println("Finished in", time.Since(start))
 	}

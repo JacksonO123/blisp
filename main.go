@@ -26,7 +26,8 @@ type variable struct {
 }
 
 type dataStore struct {
-	vars map[string]variable
+	vars      map[string]variable
+	evalCache map[string]string
 }
 
 func check(e error) {
@@ -137,9 +138,10 @@ func GetBlocks(code string) []string {
 			} else {
 				inString = !inString
 			}
-		}
-		if Eq(v, "\t") {
-			if len(temp) > 0 && !Eq(strings.Split(temp, "")[len(temp)-1], " ") {
+			temp += v
+			continue
+		} else if Eq(v, "\t") {
+			if len(temp) > 0 && temp[len(temp)-1] != ' ' {
 				temp += " "
 			}
 			continue
@@ -154,15 +156,14 @@ func GetBlocks(code string) []string {
 			}
 		}
 		if parenScopes > 0 {
-			if Eq(v, " ") && len(temp) > 0 && !Eq(strings.Split(temp, "")[len(temp)-1], " ") {
+			if Eq(v, " ") && len(temp) > 0 && temp[len(temp)-1] != ' ' {
 				temp += v
 			} else if !Eq(v, " ") {
 				temp += v
 			}
-		}
-		if parenScopes == 0 && strings.TrimSpace(temp) != "" {
+		} else if parenScopes == 0 && len(temp) > 0 {
 			temp += ")"
-			temp = strings.Replace(temp, "\\\"", "\"", -1)
+			temp = QuoteLiteralToQuote(temp)
 			blocks = append(blocks, temp)
 			temp = ""
 		}
@@ -173,30 +174,29 @@ func GetBlocks(code string) []string {
 func Flatten(ds *dataStore, block string) string {
 	res := block[1 : len(block)-1]
 	inString := false
-	var starts []int
-	chars := strings.Split(res, "")
+	starts := []int{}
 	for i := 0; i < len(res); i++ {
-		if Eq(chars[i], "\"") {
+		if res[i] == '"' {
 			if i > 0 {
-				if chars[i-1] != "\\" {
+				if res[i-1] != '\\' {
 					inString = !inString
 				}
 			} else {
 				inString = !inString
 			}
-		}
-		if !inString {
-			if Eq(chars[i], "(") {
+		} else if !inString {
+			if res[i] == '(' {
 				starts = append(starts, i)
-			} else if Eq(chars[i], ")") {
+			} else if res[i] == ')' {
 				slice := res[starts[len(starts)-1] : i+1]
-				hasReturn, val := Eval(ds, slice)
+				hasReturn, val := SmartEval(ds, slice)
 				if hasReturn {
-					start := starts[len(starts)-1]
-					res = res[:start] + val + res[i+1:]
-					chars = strings.Split(res, "")
-					diff := len(slice) - len(val)
-					i -= diff
+					ds.evalCache[slice] = val
+					res = res[:starts[len(starts)-1]] + val + res[i+1:]
+					i -= len(slice) - len(val)
+					if len(starts)-1 == 0 {
+						return res
+					}
 					starts = starts[:len(starts)-1]
 				}
 			}
@@ -231,7 +231,7 @@ func SplitParams(str string) []string {
 				res = append(res, temp)
 				temp = ""
 			} else if inArr {
-				if Eq(v, " ") && Eq(strings.Split(temp, "")[len(temp)-1], ",") {
+				if Eq(v, " ") && temp[len(temp)-1] == ',' {
 					continue
 				} else {
 					temp += v
@@ -262,16 +262,29 @@ func QuoteLiteralToQuote(str string) string {
 	return strings.Replace(str, "\\\"", "\"", -1)
 }
 
+func SmartEval(ds *dataStore, code string) (bool, string) {
+	if val, ok := ds.evalCache[code]; ok {
+		return true, val
+	}
+	return Eval(ds, code)
+}
+
 func Eval(ds *dataStore, code string) (bool, string) {
+	blockStart := time.Now()
 	blocks := GetBlocks(code)
+	fmt.Println("get blocks finished", time.Now().Sub(blockStart))
 	hasReturn := true
 	toReturn := ""
 	if len(blocks) != 1 {
-		for i, block := range blocks {
-			_, blocks[i] = Eval(ds, block)
+		for _, block := range blocks {
+			blockEvalStart := time.Now()
+			SmartEval(ds, block)
+			fmt.Println(block, "evaled in", time.Now().Sub(blockEvalStart))
 		}
 	} else {
+		flatStart := time.Now()
 		flatBlock := Flatten(ds, blocks[0])
+		fmt.Println(blocks[0], "flattened in", time.Now().Sub(flatStart))
 		parts := SplitParams(flatBlock)
 		params := parts[1:]
 		switch parts[0] {
@@ -296,6 +309,13 @@ func Eval(ds *dataStore, code string) (bool, string) {
 			{
 				toReturn = fmt.Sprint(Divide(ds, params...))
 			}
+		case "^":
+			{
+				if len(params) != 2 {
+					log.Fatal("Invalid number of parameters to \"^\". Expected 2 found", len(params))
+				}
+				toReturn = fmt.Sprint(Exp(ds, params[0], params[1]))
+			}
 		case "%":
 			{
 				if len(params) != 2 {
@@ -306,7 +326,7 @@ func Eval(ds *dataStore, code string) (bool, string) {
 		case "eval":
 			{
 				if len(params) == 1 {
-					hasReturn, toReturn = Eval(ds, params[0][1:len(params[0])-1])
+					hasReturn, toReturn = SmartEval(ds, params[0][1:len(params[0])-1])
 					if !hasReturn {
 						toReturn = "\"(evaluating " + QuoteToQuoteLiteral(params[0]) + ")\""
 					}
@@ -314,7 +334,7 @@ func Eval(ds *dataStore, code string) (bool, string) {
 					toReturn = "\"(evaluating " + QuoteToQuoteLiteral(strings.Join(params, ", ")) + ")\""
 					for _, v := range params {
 						if len(v) > 0 {
-							Eval(ds, v[1:len(v)-1])
+							SmartEval(ds, v[1:len(v)-1])
 						}
 					}
 				}
@@ -390,9 +410,10 @@ func main() {
 	check(err)
 	ds := new(dataStore)
 	ds.vars = make(map[string]variable)
+	ds.evalCache = make(map[string]string)
 	start := time.Now()
 	Eval(ds, string(dat))
 	if benchmark {
-		fmt.Println("Finished in " + fmt.Sprint(time.Now().Sub(start)))
+		fmt.Println("Finished in", time.Now().Sub(start))
 	}
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"math"
 	"strconv"
 	"strings"
 )
@@ -90,6 +91,12 @@ func Divide(ds *dataStore, params ...string) float64 {
 		res /= v
 	}
 	return res
+}
+
+func Exp(ds *dataStore, base string, exp string) float64 {
+	num1 := GetFloat64FromString(ds, base)
+	num2 := GetFloat64FromString(ds, base)
+	return math.Pow(num1, num2)
 }
 
 func Mod(ds *dataStore, num1 string, num2 string) int {

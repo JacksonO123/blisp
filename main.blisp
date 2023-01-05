@@ -1,3 +1,1 @@
-(var h ["epic", 2])
-(print h (type h))
-(print (get 0 h))
+(print (^ 8 2))

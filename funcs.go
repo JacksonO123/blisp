@@ -6,6 +6,8 @@ import (
 	"math"
 	"strconv"
 	"strings"
+
+	"github.com/valyala/fastjson/fastfloat"
 )
 
 func FormatPrint(str string) string {
@@ -15,11 +17,11 @@ func FormatPrint(str string) string {
 func Print(ds *dataStore, params ...string) {
 	res := []string{}
 	for _, v := range params {
-		if strings.Index(v, "\"") > -1 {
+		if strings.Contains(v, "\"") {
 			res = append(res, v)
 			continue
 		}
-		_, err := strconv.ParseFloat(v, 64)
+		_, err := fastfloat.Parse(v)
 		if err == nil {
 			res = append(res, v)
 		} else {
@@ -34,11 +36,11 @@ func Print(ds *dataStore, params ...string) {
 }
 
 func GetFloat64FromString(ds *dataStore, str string) float64 {
-	n, err := strconv.ParseFloat(str, 64)
+	n, err := fastfloat.Parse(str)
 	if err != nil {
 		if val, ok := ds.vars[str]; ok {
 			if val.variableType == Int || val.variableType == Float {
-				n, _ = strconv.ParseFloat(val.value, 64)
+				n, _ = fastfloat.Parse(val.value)
 			} else {
 				log.Fatal(err)
 			}
@@ -129,7 +131,7 @@ func MakeVar(ds *dataStore, name string, val string) {
 		return
 	}
 
-	_, err := strconv.ParseFloat(name, 64)
+	_, err := fastfloat.Parse(name)
 	if err == nil {
 		log.Fatal("Variable named " + name + " cannot be a number")
 		return

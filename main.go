@@ -5,9 +5,10 @@ import (
 	"log"
 	"math"
 	"os"
-	"strconv"
 	"strings"
 	"time"
+
+	"github.com/valyala/fastjson/fastfloat"
 )
 
 type VariableType int
@@ -67,7 +68,7 @@ func GetVariableInfo(name string, val string) variable {
 	} else if Eq(val, "true") || Eq(val, "false") {
 		variable.variableType = Bool
 	} else {
-		num, err := strconv.ParseFloat(val, 64)
+		num, err := fastfloat.Parse(val)
 		if err != nil {
 			if math.Floor(num) != num {
 				variable.variableType = Float
@@ -376,7 +377,7 @@ func main() {
 	benchmark := false
 	if len(args) > 0 {
 		fileName = args[0]
-		if strings.Index(fileName, ".blisp") < 0 {
+		if !strings.Contains(fileName, ".blisp") {
 			fileName += ".blisp"
 		}
 	} else {
@@ -391,13 +392,13 @@ func main() {
 	}
 	fileStart := time.Now()
 	dat, err := os.ReadFile(fileName)
-	fmt.Println("["+fileName+"] read in", time.Now().Sub(fileStart))
+	fmt.Println("["+fileName+"] read in", time.Since(fileStart))
 	check(err)
 	ds := new(dataStore)
 	ds.vars = make(map[string]variable)
 	start := time.Now()
 	Eval(ds, string(dat))
 	if benchmark {
-		fmt.Println("Finished in", time.Now().Sub(start))
+		fmt.Println("Finished in", time.Since(start))
 	}
 }

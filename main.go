@@ -14,8 +14,9 @@ type VariableType int
 const (
 	Int VariableType = iota
 	String
-	Double
+	Float
 	Bool
+	List
 )
 
 type variable struct {
@@ -58,8 +59,10 @@ func StringArrMap(arr []string, f func(string) string) []string {
 func GetVariableInfo(name string, val string) variable {
 	var variable variable
 	variable.name = name
-	if strings.Index(val, "\"") > 0 {
+	if strings.Index(val, "\"") == 0 {
 		variable.variableType = String
+	} else if strings.Index(val, "[") == 0 {
+		variable.variableType = List
 	} else if Eq(val, "true") || Eq(val, "false") {
 		variable.variableType = Bool
 	} else {
@@ -67,7 +70,7 @@ func GetVariableInfo(name string, val string) variable {
 		if err != nil {
 			numStr := fmt.Sprint(num)
 			if strings.Index(numStr, ".") > 0 {
-				variable.variableType = Double
+				variable.variableType = Float
 			} else {
 				variable.variableType = Int
 			}
@@ -75,6 +78,48 @@ func GetVariableInfo(name string, val string) variable {
 	}
 	variable.value = val
 	return variable
+}
+
+func SplitList(list string) []string {
+	res := []string{}
+	temp := ""
+	listChars := strings.Split(list[1:len(list)-1], "")
+	inString := false
+	nestedLists := 0
+	for i, v := range listChars {
+		if Eq(v, "\"") {
+			if i > 0 {
+				if listChars[i-1] != "\\" {
+					inString = !inString
+				}
+			} else {
+				inString = !inString
+			}
+		}
+		if !inString {
+			if Eq(v, ",") {
+				if nestedLists == 0 {
+					res = append(res, temp)
+					temp = ""
+				} else {
+					temp += v
+				}
+			} else {
+				temp += v
+				if Eq(v, "[") {
+					nestedLists++
+				} else if Eq(v, "]") {
+					nestedLists--
+				}
+			}
+		} else {
+			temp += v
+		}
+	}
+	if len(temp) > 0 {
+		res = append(res, temp)
+	}
+	return res
 }
 
 func GetBlocks(code string) []string {
@@ -132,7 +177,13 @@ func Flatten(ds *dataStore, block string) string {
 	chars := strings.Split(res, "")
 	for i := 0; i < len(res); i++ {
 		if Eq(chars[i], "\"") {
-			inString = !inString
+			if i > 0 {
+				if chars[i-1] != "\\" {
+					inString = !inString
+				}
+			} else {
+				inString = !inString
+			}
 		}
 		if !inString {
 			if Eq(chars[i], "(") {
@@ -158,6 +209,7 @@ func SplitParams(str string) []string {
 	res := []string{}
 	temp := ""
 	inString := false
+	inArr := false
 	strChars := strings.Split(str, "")
 	for i, v := range strChars {
 		if Eq(v, "\"") {
@@ -170,17 +222,35 @@ func SplitParams(str string) []string {
 			}
 		}
 		if !inString {
-			if Eq(v, " ") {
+			if Eq(v, "[") {
+				inArr = true
+				temp += v
+			} else if Eq(v, "]") {
+				inArr = false
+				temp += v
 				res = append(res, temp)
 				temp = ""
+			} else if inArr {
+				if Eq(v, " ") && Eq(strings.Split(temp, "")[len(temp)-1], ",") {
+					continue
+				} else {
+					temp += v
+				}
 			} else {
-				temp += v
+				if Eq(v, " ") {
+					res = append(res, temp)
+					temp = ""
+				} else {
+					temp += v
+				}
 			}
 		} else {
 			temp += v
 		}
 	}
-	res = append(res, temp)
+	if len(temp) > 0 {
+		res = append(res, temp)
+	}
 	return res
 }
 
@@ -264,6 +334,28 @@ func Eval(ds *dataStore, code string) (bool, string) {
 				}
 				toReturn = "\"(setting " + QuoteToQuoteLiteral(params[0]) + " to " + QuoteToQuoteLiteral(params[1]) + ")\""
 				SetVar(ds, params[0], params[1])
+			}
+		case "free":
+			{
+				if len(params) != 1 {
+					log.Fatal("Invalid number of parameters to \"free\". Expected 1 found " + fmt.Sprint(len(params)))
+				}
+				toReturn = "\"(freeing " + QuoteToQuoteLiteral(params[0]) + ")\""
+				FreeVar(ds, params[0])
+			}
+		case "type":
+			{
+				if len(params) != 1 {
+					log.Fatal("Invalid number of parameters to \"type\". Expected 1 found " + fmt.Sprint(len(params)))
+				}
+				toReturn = "\"" + GetValueType(ds, params[0]) + "\""
+			}
+		case "get":
+			{
+				if len(params) != 2 {
+					log.Fatal("Invalid number of parameters to \"get\". Expected 2 found " + fmt.Sprint(len(params)))
+				}
+				toReturn = GetValueFromList(ds, params[0], params[1])
 			}
 		default:
 			{

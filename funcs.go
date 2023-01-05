@@ -37,7 +37,7 @@ func GetFloat64FromString(ds *dataStore, str string) float64 {
 	n, err := strconv.ParseFloat(str, 64)
 	if err != nil {
 		if val, ok := ds.vars[str]; ok {
-			if val.variableType == Int || val.variableType == Double {
+			if val.variableType == Int || val.variableType == Float {
 				n, _ = strconv.ParseFloat(val.value, 64)
 			} else {
 				log.Fatal(err)
@@ -97,8 +97,8 @@ func Mod(ds *dataStore, num1 string, num2 string) int {
 	val2 := GetFloat64FromString(ds, num2)
 	val1Str := fmt.Sprint(val1)
 	val2Str := fmt.Sprint(val2)
-	v1 := GetVariableInfo("_1", val1Str)
-	v2 := GetVariableInfo("_2", val2Str)
+	v1 := GetVariableInfo("", val1Str)
+	v2 := GetVariableInfo("", val2Str)
 	if v1.variableType != Int {
 		log.Fatal(val1Str + " is not an int")
 	} else if v2.variableType != Int {
@@ -112,7 +112,7 @@ func MakeVar(ds *dataStore, name string, val string) {
 		log.Fatal("Variable already initialized: " + name)
 		return
 	}
-	reserved := []string{"print", "+", "-", "*", "/", "eval", "var"}
+	reserved := []string{"print", "+", "-", "*", "/", "%", "eval", "var", "set", "free", "type", "get"}
 	if StrArrIncludes(reserved, val) {
 		log.Fatal("Variable name " + val + " is reserved")
 		return
@@ -138,4 +138,75 @@ func SetVar(ds *dataStore, name string, val string) {
 		return
 	}
 	ds.vars[name] = GetVariableInfo(name, val)
+}
+
+func FreeVar(ds *dataStore, name string) {
+	if _, ok := ds.vars[name]; !ok {
+		log.Fatal("Unable to free, variable not initialized: " + name)
+		return
+	}
+	delete(ds.vars, name)
+}
+
+func GetType(val VariableType) string {
+	res := ""
+	switch val {
+	case Int:
+		{
+			res = "Int"
+		}
+	case String:
+		{
+			res = "String"
+		}
+	case Float:
+		{
+			res = "Float"
+		}
+	case Bool:
+		{
+			res = "Bool"
+		}
+	case List:
+		{
+			res = "List"
+		}
+	default:
+		{
+			res = "Invalid type"
+		}
+	}
+	return res
+}
+
+func GetValueType(ds *dataStore, val string) string {
+	if v, ok := ds.vars[val]; ok {
+		return GetType(v.variableType)
+	}
+	tempVar := GetVariableInfo("", val)
+	return GetType(tempVar.variableType)
+}
+
+func GetValueFromList(ds *dataStore, index string, list string) string {
+	if v, ok := ds.vars[list]; ok {
+		parts := SplitList(v.value)
+		intIndex, err := strconv.Atoi(index)
+		if err != nil {
+			log.Fatal(err)
+		}
+		return parts[intIndex]
+	} else {
+		tempVar := GetVariableInfo("", list)
+		if tempVar.variableType != List {
+			log.Fatal(list + " is not a list")
+		} else {
+			parts := SplitList(tempVar.value)
+			intIndex, err := strconv.Atoi(index)
+			if err != nil {
+				log.Fatal(err)
+			}
+			return parts[intIndex]
+		}
+	}
+	return ""
 }

@@ -1,3 +1,3 @@
-(print (var h 3))
-(print (set h 4))
-(print (print h "epic"))
+(var h ["epic", 2])
+(print h (type h))
+(print (get 0 h))

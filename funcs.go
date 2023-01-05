@@ -119,8 +119,8 @@ func MakeVar(ds *dataStore, name string, val string) {
 		return
 	}
 	reserved := []string{"print", "+", "-", "*", "/", "%", "eval", "var", "set", "free", "type", "get"}
-	if StrArrIncludes(reserved, val) {
-		log.Fatal("Variable name " + val + " is reserved")
+	if StrArrIncludes(reserved, name) {
+		log.Fatal("Variable name \"" + name + "\" is reserved")
 		return
 	}
 

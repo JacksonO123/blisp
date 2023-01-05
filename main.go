@@ -27,8 +27,7 @@ type variable struct {
 }
 
 type dataStore struct {
-	vars      map[string]variable
-	evalCache map[string]string
+	vars map[string]variable
 }
 
 func check(e error) {
@@ -124,48 +123,46 @@ func SplitList(list string) []string {
 }
 
 func GetBlocks(code string) []string {
-	temp := ""
+	temp := []rune{}
 	var blocks []string
 	inString := false
 	parenScopes := 0
-	chars := strings.Split(code, "")
-	for i, v := range chars {
-		if Eq(v, "\"") {
+	for i, c := range code {
+		if c == '"' {
 			if i > 0 {
-				if chars[i-1] != "\\" {
+				if code[i-1] != '\\' {
 					inString = !inString
 				}
 			} else {
 				inString = !inString
 			}
-			temp += v
+			temp = append(temp, c)
 			continue
-		} else if Eq(v, "\t") {
+		} else if c == '\t' {
 			if len(temp) > 0 && temp[len(temp)-1] != ' ' {
-				temp += " "
+				temp = append(temp, c)
 			}
 			continue
-		}
-		if !inString {
-			if Eq(v, "(") {
+		} else if !inString {
+			if c == '(' {
 				parenScopes++
-			} else if Eq(v, ")") {
+			} else if c == ')' {
 				parenScopes--
-			} else if Eq(v, "\n") {
+			} else if c == '\n' {
 				continue
 			}
 		}
 		if parenScopes > 0 {
-			if Eq(v, " ") && len(temp) > 0 && temp[len(temp)-1] != ' ' {
-				temp += v
-			} else if !Eq(v, " ") {
-				temp += v
+			if c == ' ' && len(temp) > 0 && temp[len(temp)-1] != ' ' {
+				temp = append(temp, c)
+			} else if c != ' ' {
+				temp = append(temp, c)
 			}
 		} else if parenScopes == 0 && len(temp) > 0 {
-			temp += ")"
-			temp = QuoteLiteralToQuote(temp)
-			blocks = append(blocks, temp)
-			temp = ""
+			temp = append(temp, ')')
+			temp = []rune(QuoteLiteralToQuote(string(temp)))
+			blocks = append(blocks, string(temp))
+			temp = []rune{}
 		}
 	}
 	return blocks
@@ -189,9 +186,8 @@ func Flatten(ds *dataStore, block string) string {
 				starts = append(starts, i)
 			} else if res[i] == ')' {
 				slice := res[starts[len(starts)-1] : i+1]
-				hasReturn, val := SmartEval(ds, slice)
+				hasReturn, val := Eval(ds, slice)
 				if hasReturn {
-					ds.evalCache[slice] = val
 					res = res[:starts[len(starts)-1]] + val + res[i+1:]
 					if len(starts)-1 == 0 {
 						return res
@@ -262,29 +258,16 @@ func QuoteLiteralToQuote(str string) string {
 	return strings.Replace(str, "\\\"", "\"", -1)
 }
 
-func SmartEval(ds *dataStore, code string) (bool, string) {
-	if val, ok := ds.evalCache[code]; ok {
-		return true, val
-	}
-	return Eval(ds, code)
-}
-
 func Eval(ds *dataStore, code string) (bool, string) {
-	blockStart := time.Now()
 	blocks := GetBlocks(code)
-	fmt.Println("get blocks finished", time.Now().Sub(blockStart))
 	hasReturn := true
 	toReturn := ""
 	if len(blocks) != 1 {
 		for _, block := range blocks {
-			blockEvalStart := time.Now()
-			SmartEval(ds, block)
-			fmt.Println(block, "evaled in", time.Now().Sub(blockEvalStart))
+			Eval(ds, block)
 		}
 	} else {
-		flatStart := time.Now()
 		flatBlock := Flatten(ds, blocks[0])
-		fmt.Println(blocks[0], "flattened in", time.Now().Sub(flatStart))
 		parts := SplitParams(flatBlock)
 		params := parts[1:]
 		switch parts[0] {
@@ -326,7 +309,7 @@ func Eval(ds *dataStore, code string) (bool, string) {
 		case "eval":
 			{
 				if len(params) == 1 {
-					hasReturn, toReturn = SmartEval(ds, params[0][1:len(params[0])-1])
+					hasReturn, toReturn = Eval(ds, params[0][1:len(params[0])-1])
 					if !hasReturn {
 						toReturn = "\"(evaluating " + QuoteToQuoteLiteral(params[0]) + ")\""
 					}
@@ -334,7 +317,7 @@ func Eval(ds *dataStore, code string) (bool, string) {
 					toReturn = "\"(evaluating " + QuoteToQuoteLiteral(strings.Join(params, ", ")) + ")\""
 					for _, v := range params {
 						if len(v) > 0 {
-							SmartEval(ds, v[1:len(v)-1])
+							Eval(ds, v[1:len(v)-1])
 						}
 					}
 				}
@@ -406,11 +389,12 @@ func main() {
 			benchmark = true
 		}
 	}
+	fileStart := time.Now()
 	dat, err := os.ReadFile(fileName)
+	fmt.Println("["+fileName+"] read in", time.Now().Sub(fileStart))
 	check(err)
 	ds := new(dataStore)
 	ds.vars = make(map[string]variable)
-	ds.evalCache = make(map[string]string)
 	start := time.Now()
 	Eval(ds, string(dat))
 	if benchmark {

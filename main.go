@@ -381,6 +381,25 @@ func Eval(ds *dataStore, code string, scopes int) (bool, string) {
 				}
 				toReturn = GetValueFromList(ds, params[0], params[1])
 			}
+		case "loop":
+			{
+				if len(params) == 3 {
+					valType := GetValueType(ds, params[0])
+					if Eq(valType, "List") {
+						LoopListIterator(ds, scopes, params[0], params[1], params[2])
+						toReturn = "\"(looping over " + params[0] + ")\""
+					} else {
+						log.Fatal("Expecting first param to be list, got:", valType)
+					}
+				} else if len(params) == 4 {
+					valType := GetValueType(ds, params[0])
+					if Eq(valType, "List") {
+						LoopListIndexIterator(ds, scopes, params[0], params[1], params[2], params[3])
+					} else {
+						log.Fatal("Expecting first param to be list, got:", valType)
+					}
+				}
+			}
 		default:
 			{
 				hasReturn = false

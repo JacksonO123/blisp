@@ -1,3 +1,6 @@
+(var i 100)
 (var h ["epic", 2, 4, false])
-(print (var h 3) h)
-(print h (get 3 h))
+(loop h i item "
+(print i item (get i h))
+")
+(print i)

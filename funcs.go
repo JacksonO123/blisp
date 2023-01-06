@@ -170,34 +170,27 @@ func FreeVar(ds *dataStore, name string) {
 }
 
 func GetType(val VariableType) string {
-	res := ""
+	res := "Invalid Type"
 	switch val {
 	case Int:
-		{
-			res = "Int"
-		}
+		res = "Int"
 	case String:
-		{
-			res = "String"
-		}
+		res = "String"
 	case Float:
-		{
-			res = "Float"
-		}
+		res = "Float"
 	case Bool:
-		{
-			res = "Bool"
-		}
+		res = "Bool"
 	case List:
-		{
-			res = "List"
-		}
-	default:
-		{
-			res = "Invalid type"
-		}
+		res = "List"
 	}
 	return res
+}
+
+func GetValue(ds *dataStore, val string) variable {
+	if v, ok := ds.vars[val]; ok {
+		return v[len(v)-1]
+	}
+	return GetVariableInfo("", val)
 }
 
 func GetValueType(ds *dataStore, val string) string {
@@ -211,7 +204,7 @@ func GetValueType(ds *dataStore, val string) string {
 func GetValueFromList(ds *dataStore, index string, list string) string {
 	if v, ok := ds.vars[list]; ok {
 		parts := SplitList(v[len(v)-1].value)
-		intIndex, err := strconv.Atoi(index)
+		intIndex, err := strconv.Atoi(GetValue(ds, index).value)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -230,4 +223,34 @@ func GetValueFromList(ds *dataStore, index string, list string) string {
 		}
 	}
 	return ""
+}
+
+func LoopListIterator(ds *dataStore, scopes int, list string, iteratorName string, body string) {
+	listVar := GetValue(ds, list)
+	parts := SplitList(listVar.value)
+	made := false
+	for _, v := range parts {
+		if !made {
+			MakeVar(ds, scopes+1, iteratorName, v)
+		} else {
+			SetVar(ds, iteratorName, v)
+		}
+		Eval(ds, body[1:len(body)-1], scopes)
+	}
+}
+
+func LoopListIndexIterator(ds *dataStore, scopes int, list string, indexIterator string, iteratorName string, body string) {
+	listVar := GetValue(ds, list)
+	parts := SplitList(listVar.value)
+	made := false
+	for i, v := range parts {
+		if !made {
+			MakeVar(ds, scopes+1, iteratorName, v)
+			MakeVar(ds, scopes+1, indexIterator, fmt.Sprint(i))
+		} else {
+			SetVar(ds, iteratorName, v)
+			SetVar(ds, indexIterator, fmt.Sprint(i))
+		}
+		Eval(ds, body[1:len(body)-1], scopes)
+	}
 }

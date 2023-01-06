@@ -86,14 +86,14 @@ func GetVariableInfo(name string, val string) variable {
 
 func SplitList(list string) []string {
 	res := []string{}
-	temp := ""
-	listChars := strings.Split(list[1:len(list)-1], "")
+	temp := []rune{}
+	newList := list[1 : len(list)-1]
 	inString := false
 	nestedLists := 0
-	for i, v := range listChars {
-		if Eq(v, "\"") {
+	for i, v := range newList {
+		if v == '"' {
 			if i > 0 {
-				if listChars[i-1] != "\\" {
+				if newList[i-1] != '\\' {
 					inString = !inString
 				}
 			} else {
@@ -101,27 +101,27 @@ func SplitList(list string) []string {
 			}
 		}
 		if !inString {
-			if Eq(v, ",") {
+			if v == ',' {
 				if nestedLists == 0 {
-					res = append(res, temp)
-					temp = ""
+					res = append(res, string(temp))
+					temp = []rune{}
 				} else {
-					temp += v
+					temp = append(temp, v)
 				}
 			} else {
-				temp += v
-				if Eq(v, "[") {
+				temp = append(temp, v)
+				if v == '[' {
 					nestedLists++
-				} else if Eq(v, "]") {
+				} else if v == ']' {
 					nestedLists--
 				}
 			}
 		} else {
-			temp += v
+			temp = append(temp, v)
 		}
 	}
 	if len(temp) > 0 {
-		res = append(res, temp)
+		res = append(res, string(temp))
 	}
 	return res
 }

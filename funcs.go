@@ -118,11 +118,9 @@ func Mod(ds *dataStore, num1 string, num2 string) int {
 }
 
 func MakeVar(ds *dataStore, scopes int, name string, val string) {
-	if v, ok := ds.vars[name]; ok {
-		if len(v) > scopes {
-			log.Fatal("Variable already initialized: " + name)
-			return
-		}
+	if scopes < len(ds.scopedVars) && StrArrIncludes(ds.scopedVars[scopes], name) {
+		log.Fatal("Variable already initialized: " + name)
+		return
 	}
 	reserved := []string{"print", "+", "-", "*", "/", "%", "eval", "var", "set", "free", "type", "get", "true", "false"}
 	if StrArrIncludes(reserved, name) {
@@ -145,7 +143,14 @@ func MakeVar(ds *dataStore, scopes int, name string, val string) {
 	for len(ds.scopedVars) < scopes {
 		ds.scopedVars = append(ds.scopedVars, []string{})
 	}
-	ds.scopedVars[scopes-1] = append(ds.scopedVars[scopes-1], name)
+	for len(ds.scopedRedef) < scopes {
+		ds.scopedRedef = append(ds.scopedRedef, []string{})
+	}
+	if _, ok := ds.vars[name]; ok {
+		ds.scopedRedef[scopes-1] = append(ds.scopedRedef[scopes-1], name)
+	} else {
+		ds.scopedVars[scopes-1] = append(ds.scopedVars[scopes-1], name)
+	}
 }
 
 func SetVar(ds *dataStore, name string, val string) {

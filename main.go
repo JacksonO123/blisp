@@ -28,9 +28,10 @@ type variable struct {
 }
 
 type dataStore struct {
-	vars       map[string][]variable
-	scopedVars [][]string
-	evalCache  map[string]string
+	vars        map[string][]variable
+	scopedVars  [][]string
+	scopedRedef [][]string
+	evalCache   map[string]string
 }
 
 func check(e error) {
@@ -174,16 +175,17 @@ func GetBlocks(code string) []string {
 func RemoveScopedVars(ds *dataStore, keepScopes int) {
 	for keepScopes < len(ds.scopedVars) {
 		arrToFree := ds.scopedVars[len(ds.scopedVars)-1]
+		scopesToPop := ds.scopedRedef[len(ds.scopedRedef)-1]
+		for _, v := range scopesToPop {
+			if len(ds.vars[v]) > 0 {
+				ds.vars[v] = ds.vars[v][:len(ds.vars[v])-1]
+			}
+		}
 		for _, v := range arrToFree {
+			fmt.Println("Freeing", v)
 			FreeVar(ds, v)
 		}
 		ds.scopedVars = ds.scopedVars[:len(ds.scopedVars)-1]
-	}
-}
-
-func RemoveScopedVarValues(ds *dataStore, keepScopes int) {
-	for keepScopes < len(ds.scopedVars) {
-		break
 	}
 }
 
@@ -207,7 +209,6 @@ func Flatten(ds *dataStore, block string, caching bool) string {
 				slice := res[starts[len(starts)-1] : i+1]
 				hasReturn, val := Eval(ds, slice, caching, len(starts)+1)
 				RemoveScopedVars(ds, len(starts)+1)
-				RemoveScopedVarValues(ds, len(starts)+1)
 				if hasReturn {
 					res = res[:starts[len(starts)-1]] + val + res[i+1:]
 					if len(starts)-1 == 0 {
@@ -280,14 +281,14 @@ func QuoteLiteralToQuote(str string) string {
 }
 
 func Eval(ds *dataStore, code string, caching bool, scopes int) (bool, string) {
-	fmt.Println("#", code, scopes)
+	fmt.Println("#", code, "["+fmt.Sprint(scopes)+"]", ds.scopedVars)
 	blocks := GetBlocks(code)
 	hasReturn := true
 	toReturn := ""
 	if len(blocks) != 1 {
 		for _, block := range blocks {
 			Eval(ds, block, caching, scopes+1)
-			RemoveScopedVars(ds, scopes)
+			RemoveScopedVars(ds, scopes+1)
 		}
 	} else {
 		flatBlock := ""
@@ -363,6 +364,7 @@ func Eval(ds *dataStore, code string, caching bool, scopes int) (bool, string) {
 				}
 				toReturn = "\"(initializing " + QuoteToQuoteLiteral(params[0]) + " to " + QuoteToQuoteLiteral(params[1]) + ")\""
 				MakeVar(ds, scopes, params[0], params[1])
+				fmt.Println("Scopes", ds.scopedVars)
 			}
 		case "set":
 			{
@@ -436,6 +438,7 @@ func main() {
 	ds := new(dataStore)
 	ds.vars = make(map[string][]variable)
 	ds.scopedVars = [][]string{}
+	ds.scopedRedef = [][]string{}
 	ds.evalCache = make(map[string]string)
 	start := time.Now()
 	Eval(ds, string(dat), caching, 0)

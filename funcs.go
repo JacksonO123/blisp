@@ -141,7 +141,6 @@ func MakeVar(ds *dataStore, scopes int, name string, val string) {
 	for len(ds.scopedVars) < scopes {
 		ds.scopedVars = append(ds.scopedVars, []string{})
 	}
-	fmt.Println("Making in", scopes-1)
 	ds.scopedVars[scopes-1] = append(ds.scopedVars[scopes-1], name)
 }
 

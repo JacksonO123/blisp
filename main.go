@@ -30,6 +30,7 @@ type variable struct {
 type dataStore struct {
 	vars       map[string]variable
 	scopedVars [][]string
+	evalCache  map[string]string
 }
 
 func check(e error) {
@@ -183,7 +184,7 @@ func RemoveScopedVars(ds *dataStore, keepScopes int) {
 	}
 }
 
-func Flatten(ds *dataStore, block string) string {
+func Flatten(ds *dataStore, block string, caching bool) string {
 	res := block[1 : len(block)-1]
 	inString := false
 	starts := []int{}
@@ -201,13 +202,9 @@ func Flatten(ds *dataStore, block string) string {
 				starts = append(starts, i)
 			} else if res[i] == ')' {
 				slice := res[starts[len(starts)-1] : i+1]
-				hasReturn, val := Eval(ds, slice, len(starts)+1)
+				hasReturn, val := Eval(ds, slice, caching, len(starts)+1)
 				if hasReturn {
 					res = res[:starts[len(starts)-1]] + val + res[i+1:]
-					fmt.Println(len(starts), len(ds.scopedVars))
-					// if len(starts)+1 < len(ds.scopedVars) {
-					// 	RemoveScopedVars(ds, len(ds.scopedVars)-len(starts))
-					// }
 					if len(starts)-1 == 0 {
 						return res
 					}
@@ -277,18 +274,28 @@ func QuoteLiteralToQuote(str string) string {
 	return strings.Replace(str, "\\\"", "\"", -1)
 }
 
-func Eval(ds *dataStore, code string, scopes int) (bool, string) {
-	fmt.Println("#", code, "["+fmt.Sprint(scopes)+"]", ds.scopedVars)
+func Eval(ds *dataStore, code string, caching bool, scopes int) (bool, string) {
 	blocks := GetBlocks(code)
 	hasReturn := true
 	toReturn := ""
 	if len(blocks) != 1 {
 		for _, block := range blocks {
-			Eval(ds, block, scopes+1)
+			Eval(ds, block, caching, scopes+1)
 			RemoveScopedVars(ds, 1)
 		}
 	} else {
-		flatBlock := Flatten(ds, blocks[0])
+		flatBlock := ""
+		if caching {
+			if val, ok := ds.evalCache[blocks[0]]; ok {
+				flatBlock = val
+			} else {
+				flatBlock = Flatten(ds, blocks[0], caching)
+				ds.evalCache[blocks[0]] = flatBlock
+			}
+		} else {
+			flatBlock = Flatten(ds, blocks[0], caching)
+			ds.evalCache[blocks[0]] = flatBlock
+		}
 		parts := SplitParams(flatBlock)
 		params := parts[1:]
 		switch parts[0] {
@@ -330,7 +337,7 @@ func Eval(ds *dataStore, code string, scopes int) (bool, string) {
 		case "eval":
 			{
 				if len(params) == 1 {
-					hasReturn, toReturn = Eval(ds, params[0][1:len(params[0])-1], scopes)
+					hasReturn, toReturn = Eval(ds, params[0][1:len(params[0])-1], caching, scopes)
 					if !hasReturn {
 						toReturn = "\"(evaluating " + QuoteToQuoteLiteral(params[0]) + ")\""
 					}
@@ -338,7 +345,7 @@ func Eval(ds *dataStore, code string, scopes int) (bool, string) {
 					toReturn = "\"(evaluating " + QuoteToQuoteLiteral(strings.Join(params, ", ")) + ")\""
 					for _, v := range params {
 						if len(v) > 0 {
-							Eval(ds, v[1:len(v)-1], scopes)
+							Eval(ds, v[1:len(v)-1], caching, scopes)
 						}
 					}
 				}
@@ -395,6 +402,7 @@ func main() {
 	args := os.Args[1:]
 	fileName := ""
 	benchmark := false
+	caching := false
 	if len(args) > 0 {
 		fileName = args[0]
 		if !strings.Contains(fileName, ".blisp") {
@@ -409,6 +417,9 @@ func main() {
 		if StrArrIncludes(flags, "-b") {
 			benchmark = true
 		}
+		if StrArrIncludes(flags, "-c") {
+			caching = true
+		}
 	}
 	fileStart := time.Now()
 	dat, err := os.ReadFile(fileName)
@@ -417,8 +428,9 @@ func main() {
 	ds := new(dataStore)
 	ds.vars = make(map[string]variable)
 	ds.scopedVars = [][]string{}
+	ds.evalCache = make(map[string]string)
 	start := time.Now()
-	Eval(ds, string(dat), 0)
+	Eval(ds, string(dat), caching, 0)
 	if benchmark {
 		fmt.Println("Finished in", time.Since(start))
 	}

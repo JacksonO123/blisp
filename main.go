@@ -182,7 +182,6 @@ func RemoveScopedVars(ds *dataStore, keepScopes int) {
 			}
 		}
 		for _, v := range arrToFree {
-			fmt.Println("Freeing", v)
 			FreeVar(ds, v)
 		}
 		ds.scopedVars = ds.scopedVars[:len(ds.scopedVars)-1]
@@ -281,7 +280,6 @@ func QuoteLiteralToQuote(str string) string {
 }
 
 func Eval(ds *dataStore, code string, caching bool, scopes int) (bool, string) {
-	fmt.Println("#", code, "["+fmt.Sprint(scopes)+"]", ds.scopedVars)
 	blocks := GetBlocks(code)
 	hasReturn := true
 	toReturn := ""
@@ -364,7 +362,6 @@ func Eval(ds *dataStore, code string, caching bool, scopes int) (bool, string) {
 				}
 				toReturn = "\"(initializing " + QuoteToQuoteLiteral(params[0]) + " to " + QuoteToQuoteLiteral(params[1]) + ")\""
 				MakeVar(ds, scopes, params[0], params[1])
-				fmt.Println("Scopes", ds.scopedVars)
 			}
 		case "set":
 			{

@@ -430,6 +430,7 @@ func main() {
 	dat, err := os.ReadFile(fileName)
 	if benchmark {
 		fmt.Println("["+fileName+"] read in", time.Since(fileStart))
+		fmt.Println()
 	}
 	check(err)
 	ds := new(dataStore)
@@ -440,6 +441,6 @@ func main() {
 	start := time.Now()
 	Eval(ds, string(dat), caching, 0)
 	if benchmark {
-		fmt.Println("Finished in", time.Since(start))
+		fmt.Println("\nFinished in", time.Since(start))
 	}
 }

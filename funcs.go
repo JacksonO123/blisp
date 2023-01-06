@@ -25,8 +25,10 @@ func Print(ds *dataStore, params ...string) {
 		if err == nil {
 			res = append(res, v)
 		} else {
-			if val, ok := ds.vars[v]; ok {
-				res = append(res, val.value)
+			if Eq(v, "true") || Eq(v, "false") {
+				res = append(res, v)
+			} else if val, ok := ds.vars[v]; ok {
+				res = append(res, val[len(val)-1].value)
 			} else {
 				log.Fatal("Unknown value: " + v)
 			}
@@ -39,8 +41,8 @@ func GetFloat64FromString(ds *dataStore, str string) float64 {
 	n, err := fastfloat.Parse(str)
 	if err != nil {
 		if val, ok := ds.vars[str]; ok {
-			if val.variableType == Int || val.variableType == Float {
-				n, _ = fastfloat.Parse(val.value)
+			if val[len(val)-1].variableType == Int || val[len(val)-1].variableType == Float {
+				n, _ = fastfloat.Parse(val[len(val)-1].value)
 			} else {
 				log.Fatal(err)
 			}
@@ -116,11 +118,13 @@ func Mod(ds *dataStore, num1 string, num2 string) int {
 }
 
 func MakeVar(ds *dataStore, scopes int, name string, val string) {
-	if _, ok := ds.vars[name]; ok {
-		log.Fatal("Variable already initialized: " + name)
-		return
+	if v, ok := ds.vars[name]; ok {
+		if len(v) > scopes {
+			log.Fatal("Variable already initialized: " + name)
+			return
+		}
 	}
-	reserved := []string{"print", "+", "-", "*", "/", "%", "eval", "var", "set", "free", "type", "get"}
+	reserved := []string{"print", "+", "-", "*", "/", "%", "eval", "var", "set", "free", "type", "get", "true", "false"}
 	if StrArrIncludes(reserved, name) {
 		log.Fatal("Variable name \"" + name + "\" is reserved")
 		return
@@ -137,7 +141,7 @@ func MakeVar(ds *dataStore, scopes int, name string, val string) {
 		return
 	}
 
-	ds.vars[name] = GetVariableInfo(name, val)
+	ds.vars[name] = append(ds.vars[name], GetVariableInfo(name, val))
 	for len(ds.scopedVars) < scopes {
 		ds.scopedVars = append(ds.scopedVars, []string{})
 	}
@@ -149,7 +153,7 @@ func SetVar(ds *dataStore, name string, val string) {
 		log.Fatal("Variable not initialized: " + name)
 		return
 	}
-	ds.vars[name] = GetVariableInfo(name, val)
+	ds.vars[name][len(ds.vars[name])-1] = GetVariableInfo(name, val)
 }
 
 func FreeVar(ds *dataStore, name string) {
@@ -193,7 +197,7 @@ func GetType(val VariableType) string {
 
 func GetValueType(ds *dataStore, val string) string {
 	if v, ok := ds.vars[val]; ok {
-		return GetType(v.variableType)
+		return GetType(v[len(v)-1].variableType)
 	}
 	tempVar := GetVariableInfo("", val)
 	return GetType(tempVar.variableType)
@@ -201,7 +205,7 @@ func GetValueType(ds *dataStore, val string) string {
 
 func GetValueFromList(ds *dataStore, index string, list string) string {
 	if v, ok := ds.vars[list]; ok {
-		parts := SplitList(v.value)
+		parts := SplitList(v[len(v)-1].value)
 		intIndex, err := strconv.Atoi(index)
 		if err != nil {
 			log.Fatal(err)

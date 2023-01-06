@@ -28,7 +28,7 @@ type variable struct {
 }
 
 type dataStore struct {
-	vars       map[string]variable
+	vars       map[string][]variable
 	scopedVars [][]string
 	evalCache  map[string]string
 }
@@ -203,6 +203,7 @@ func Flatten(ds *dataStore, block string, caching bool) string {
 			} else if res[i] == ')' {
 				slice := res[starts[len(starts)-1] : i+1]
 				hasReturn, val := Eval(ds, slice, caching, len(starts)+1)
+				RemoveScopedVars(ds, len(starts)+1)
 				if hasReturn {
 					res = res[:starts[len(starts)-1]] + val + res[i+1:]
 					if len(starts)-1 == 0 {
@@ -275,13 +276,14 @@ func QuoteLiteralToQuote(str string) string {
 }
 
 func Eval(ds *dataStore, code string, caching bool, scopes int) (bool, string) {
+	fmt.Println("#", code, scopes)
 	blocks := GetBlocks(code)
 	hasReturn := true
 	toReturn := ""
 	if len(blocks) != 1 {
 		for _, block := range blocks {
 			Eval(ds, block, caching, scopes+1)
-			RemoveScopedVars(ds, 1)
+			RemoveScopedVars(ds, scopes)
 		}
 	} else {
 		flatBlock := ""
@@ -301,7 +303,7 @@ func Eval(ds *dataStore, code string, caching bool, scopes int) (bool, string) {
 		switch parts[0] {
 		case "print":
 			{
-				toReturn = "\"(printing " + strings.Join(params, ", ") + ")\""
+				toReturn = "\"(printing " + QuoteToQuoteLiteral(QuoteLiteralToQuote(strings.Join(params, ", "))) + ")\""
 				Print(ds, parts[1:]...)
 			}
 		case "+":
@@ -423,10 +425,12 @@ func main() {
 	}
 	fileStart := time.Now()
 	dat, err := os.ReadFile(fileName)
-	fmt.Println("["+fileName+"] read in", time.Since(fileStart))
+	if benchmark {
+		fmt.Println("["+fileName+"] read in", time.Since(fileStart))
+	}
 	check(err)
 	ds := new(dataStore)
-	ds.vars = make(map[string]variable)
+	ds.vars = make(map[string][]variable)
 	ds.scopedVars = [][]string{}
 	ds.evalCache = make(map[string]string)
 	start := time.Now()

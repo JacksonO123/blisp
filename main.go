@@ -173,14 +173,17 @@ func GetBlocks(code string) []string {
 
 func RemoveScopedVars(ds *dataStore, keepScopes int) {
 	for keepScopes < len(ds.scopedVars) {
-		if len(ds.scopedVars) == 0 {
-			break
-		}
 		arrToFree := ds.scopedVars[len(ds.scopedVars)-1]
 		for _, v := range arrToFree {
 			FreeVar(ds, v)
 		}
 		ds.scopedVars = ds.scopedVars[:len(ds.scopedVars)-1]
+	}
+}
+
+func RemoveScopedVarValues(ds *dataStore, keepScopes int) {
+	for keepScopes < len(ds.scopedVars) {
+		break
 	}
 }
 
@@ -204,6 +207,7 @@ func Flatten(ds *dataStore, block string, caching bool) string {
 				slice := res[starts[len(starts)-1] : i+1]
 				hasReturn, val := Eval(ds, slice, caching, len(starts)+1)
 				RemoveScopedVars(ds, len(starts)+1)
+				RemoveScopedVarValues(ds, len(starts)+1)
 				if hasReturn {
 					res = res[:starts[len(starts)-1]] + val + res[i+1:]
 					if len(starts)-1 == 0 {

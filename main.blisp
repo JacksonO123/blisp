@@ -1,6 +1,1 @@
-(var i 100)
-(var h ["epic", 2, 4, false])
-(loop h i item "
-(print i item (get i h))
-")
-(print i)
+(loop ["this" "list" true] i h (body (print i h))))

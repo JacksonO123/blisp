@@ -100,7 +100,7 @@ func SplitList(list string) []string {
 			}
 		}
 		if !inString {
-			if v == ',' {
+			if v == ' ' {
 				if nestedLists == 0 {
 					res = append(res, string(temp))
 					temp = []rune{}
@@ -191,6 +191,8 @@ func Flatten(ds *dataStore, block string) string {
 	res := block[1 : len(block)-1]
 	inString := false
 	starts := []int{}
+	funcNames := []string{""}
+	hasCurrentFunc := false
 	for i := 0; i < len(res); i++ {
 		if res[i] == '"' {
 			if i > 0 {
@@ -202,21 +204,44 @@ func Flatten(ds *dataStore, block string) string {
 			}
 		} else if !inString {
 			if res[i] == '(' {
+				hasCurrentFunc = false
+				funcNames = append(funcNames, "")
 				starts = append(starts, i)
 			} else if res[i] == ')' {
-				slice := res[starts[len(starts)-1] : i+1]
-				hasReturn, val := Eval(ds, slice, len(starts)+1)
-				RemoveScopedVars(ds, len(starts)+1)
-				if hasReturn {
-					res = res[:starts[len(starts)-1]] + val + res[i+1:]
-					if len(starts)-1 == 0 {
-						return res
+				hasCurrentFunc = false
+				if StrArrIncludes(funcNames, "body") {
+					if Eq(funcNames[len(funcNames)-1], "body") {
+						slice := res[starts[len(starts)-1]:i]
+						starts = starts[:len(starts)-1]
+						res = res[:starts[len(starts)-1]] + "\"" + QuoteToQuoteLiteral(slice) + "\"" + res[i+1:]
+						funcNames = funcNames[:len(funcNames)-1]
+					} else {
+						funcNames = funcNames[:len(funcNames)-1]
 					}
-					i -= len(slice) - len(val)
-					starts = starts[:len(starts)-1]
+				} else {
+					slice := res[starts[len(starts)-1] : i+1]
+					hasReturn, val := Eval(ds, slice, len(starts)+1)
+					RemoveScopedVars(ds, len(starts)+1)
+					if hasReturn {
+						res = res[:starts[len(starts)-1]] + val + res[i+1:]
+						if len(starts)-1 == 0 {
+							return res
+						}
+						i -= len(slice) - len(val)
+						starts = starts[:len(starts)-1]
+					}
 				}
+			} else if res[i] == ' ' {
+				if !hasCurrentFunc {
+					hasCurrentFunc = true
+				}
+			} else if !hasCurrentFunc {
+				funcNames[len(funcNames)-1] += string(res[i])
 			}
 		}
+	}
+	if len(funcNames) > 0 && Eq(funcNames[0], "body") {
+		res = "\"" + res[5:] + "\""
 	}
 	return res
 }
@@ -254,7 +279,9 @@ func SplitParams(str string) []string {
 				}
 			} else {
 				if Eq(v, " ") {
-					res = append(res, temp)
+					if len(temp) > 0 {
+						res = append(res, temp)
+					}
 					temp = ""
 				} else {
 					temp += v

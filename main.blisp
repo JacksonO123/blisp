@@ -1,1 +1,1 @@
-(loop ["this" "list" true] i h (body (print i h))))
+(loop 2 4 i (body (print i)))

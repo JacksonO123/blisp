@@ -254,3 +254,30 @@ func LoopListIndexIterator(ds *dataStore, scopes int, list string, indexIterator
 		Eval(ds, body[1:len(body)-1], scopes)
 	}
 }
+
+func LoopTo(ds *dataStore, scopes int, max string, indexIterator string, body string) {
+	maxNum := int(GetFloat64FromString(ds, max))
+	made := false
+	for i := 0; i < maxNum; i++ {
+		if !made {
+			MakeVar(ds, scopes+1, indexIterator, fmt.Sprint(i))
+		} else {
+			SetVar(ds, indexIterator, fmt.Sprint(i))
+		}
+		Eval(ds, body[1:len(body)-1], scopes)
+	}
+}
+
+func LoopFromTo(ds *dataStore, scopes int, start string, max string, indexIterator string, body string) {
+	startNum := int(GetFloat64FromString(ds, start))
+	maxNum := int(GetFloat64FromString(ds, max))
+	made := false
+	for i := startNum; i < maxNum; i++ {
+		if !made {
+			MakeVar(ds, scopes+1, indexIterator, fmt.Sprint(i))
+		} else {
+			SetVar(ds, indexIterator, fmt.Sprint(i))
+		}
+		Eval(ds, body[1:len(body)-1], scopes)
+	}
+}

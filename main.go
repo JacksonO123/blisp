@@ -211,11 +211,12 @@ func Flatten(ds *dataStore, block string) string {
 				hasCurrentFunc = false
 				if StrArrIncludes(funcNames, "body") {
 					if Eq(funcNames[len(funcNames)-1], "body") {
-						slice := res[starts[len(starts)-1]:i]
-						starts = starts[:len(starts)-1]
+						slice := res[starts[len(starts)-1]+6 : i]
 						res = res[:starts[len(starts)-1]] + "\"" + QuoteToQuoteLiteral(slice) + "\"" + res[i+1:]
+						starts = starts[:len(starts)-1]
 						funcNames = funcNames[:len(funcNames)-1]
 					} else {
+						starts = starts[:len(starts)-1]
 						funcNames = funcNames[:len(funcNames)-1]
 					}
 				} else {

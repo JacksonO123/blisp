@@ -122,7 +122,7 @@ func MakeVar(ds *dataStore, scopes int, name string, val string) {
 		log.Fatal("Variable already initialized: " + name)
 		return
 	}
-	reserved := []string{"print", "+", "-", "*", "/", "%", "eval", "var", "set", "free", "type", "get", "true", "false"}
+	reserved := []string{"print", "+", "-", "*", "/", "%", "eval", "var", "set", "free", "type", "get", "true", "false", "loop", "body"}
 	if StrArrIncludes(reserved, name) {
 		log.Fatal("Variable name \"" + name + "\" is reserved")
 		return
@@ -158,7 +158,7 @@ func SetVar(ds *dataStore, name string, val string) {
 		log.Fatal("Variable not initialized: " + name)
 		return
 	}
-	ds.vars[name][len(ds.vars[name])-1] = GetVariableInfo(name, val)
+	ds.vars[name][len(ds.vars[name])-1] = GetValue(ds, val)
 }
 
 func FreeVar(ds *dataStore, name string) {

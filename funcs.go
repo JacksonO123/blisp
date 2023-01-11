@@ -25,7 +25,7 @@ func Print(ds *dataStore, params ...string) {
 		if err == nil {
 			res = append(res, v)
 		} else {
-			if Eq(v, "true") || Eq(v, "false") {
+			if v == "true" || v == "false" {
 				res = append(res, v)
 			} else if val, ok := ds.vars[v]; ok {
 				res = append(res, val[len(val)-1].value)
@@ -122,7 +122,25 @@ func MakeVar(ds *dataStore, scopes int, name string, val string) {
 		log.Fatal("Variable already initialized: " + name)
 		return
 	}
-	reserved := []string{"print", "+", "-", "*", "/", "%", "eval", "var", "set", "free", "type", "get", "true", "false", "loop", "body"}
+	reserved := []string{
+		"print",
+		"+",
+		"-",
+		"*",
+		"/",
+		"%",
+		"eval",
+		"var",
+		"set",
+		"free",
+		"type",
+		"get",
+		"true",
+		"false",
+		"loop",
+		"body",
+		"scan-line",
+	}
 	if StrArrIncludes(reserved, name) {
 		log.Fatal("Variable name \"" + name + "\" is reserved")
 		return

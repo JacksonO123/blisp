@@ -5,6 +5,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -39,13 +40,9 @@ func check(e error) {
 	}
 }
 
-func Eq(s1 string, s2 string) bool {
-	return strings.Compare(s1, s2) == 0
-}
-
 func StrArrIncludes(arr []string, val string) bool {
 	for _, v := range arr {
-		if Eq(v, val) {
+		if v == val {
 			return true
 		}
 	}
@@ -67,7 +64,7 @@ func GetVariableInfo(name string, val string) variable {
 		variable.variableType = String
 	} else if strings.Index(val, "[") == 0 {
 		variable.variableType = List
-	} else if Eq(val, "true") || Eq(val, "false") {
+	} else if val == "true" || val == "false" {
 		variable.variableType = Bool
 	} else {
 		num, err := fastfloat.Parse(val)
@@ -143,7 +140,7 @@ func GetBlocks(code string) []string {
 			continue
 		} else if c == '\t' {
 			if len(temp) > 0 && temp[len(temp)-1] != ' ' {
-				temp = append(temp, c)
+				temp = append(temp, ' ')
 			}
 			continue
 		} else if !inString {
@@ -163,7 +160,7 @@ func GetBlocks(code string) []string {
 			}
 		} else if parenScopes == 0 && len(temp) > 0 {
 			temp = append(temp, ')')
-			temp = []rune(QuoteLiteralToQuote(string(temp)))
+			temp = []rune(string(temp))
 			blocks = append(blocks, string(temp))
 			temp = []rune{}
 		}
@@ -210,24 +207,20 @@ func Flatten(ds *dataStore, block string) string {
 			} else if res[i] == ')' {
 				hasCurrentFunc = false
 				if StrArrIncludes(funcNames, "body") {
-					if Eq(funcNames[len(funcNames)-1], "body") {
+					if funcNames[len(funcNames)-1] == "body" {
 						slice := res[starts[len(starts)-1]+6 : i]
-						res = res[:starts[len(starts)-1]] + "\"" + QuoteToQuoteLiteral(slice) + "\"" + res[i+1:]
-						starts = starts[:len(starts)-1]
-						funcNames = funcNames[:len(funcNames)-1]
-					} else {
-						starts = starts[:len(starts)-1]
-						funcNames = funcNames[:len(funcNames)-1]
+						replaceWith := QuoteToQuoteLiteral(slice)
+						res = res[:starts[len(starts)-1]] + "\"" + replaceWith + "\"" + res[i+1:]
+						i -= len(slice) + 5 - len(replaceWith)
 					}
+					starts = starts[:len(starts)-1]
+					funcNames = funcNames[:len(funcNames)-1]
 				} else {
 					slice := res[starts[len(starts)-1] : i+1]
 					hasReturn, val := Eval(ds, slice, len(starts)+1)
 					RemoveScopedVars(ds, len(starts)+1)
 					if hasReturn {
 						res = res[:starts[len(starts)-1]] + val + res[i+1:]
-						if len(starts)-1 == 0 {
-							return res
-						}
 						i -= len(slice) - len(val)
 						starts = starts[:len(starts)-1]
 					}
@@ -241,9 +234,7 @@ func Flatten(ds *dataStore, block string) string {
 			}
 		}
 	}
-	if len(funcNames) > 0 && Eq(funcNames[0], "body") {
-		res = "\"" + res[5:] + "\""
-	}
+	res = FixQuoteLiterals(res)
 	return res
 }
 
@@ -254,7 +245,7 @@ func SplitParams(str string) []string {
 	inArr := false
 	strChars := strings.Split(str, "")
 	for i, v := range strChars {
-		if Eq(v, "\"") {
+		if v == "\"" {
 			if i > 0 {
 				if strChars[i-1] != "\\" {
 					inString = !inString
@@ -264,22 +255,22 @@ func SplitParams(str string) []string {
 			}
 		}
 		if !inString {
-			if Eq(v, "[") {
+			if v == "[" {
 				inArr = true
 				temp += v
-			} else if Eq(v, "]") {
+			} else if v == "]" {
 				inArr = false
 				temp += v
 				res = append(res, temp)
 				temp = ""
 			} else if inArr {
-				if Eq(v, " ") && temp[len(temp)-1] == ',' {
+				if v == " " && temp[len(temp)-1] == ',' {
 					continue
 				} else {
 					temp += v
 				}
 			} else {
-				if Eq(v, " ") {
+				if v == " " {
 					if len(temp) > 0 {
 						res = append(res, temp)
 					}
@@ -298,12 +289,47 @@ func SplitParams(str string) []string {
 	return res
 }
 
-func QuoteToQuoteLiteral(str string) string {
-	return strings.Replace(str, "\"", "\\\"", -1)
-}
-
 func QuoteLiteralToQuote(str string) string {
 	return strings.Replace(str, "\\\"", "\"", -1)
+}
+
+func QuoteToQuoteLiteral(str string) string {
+	res := str
+	for i := 0; i < len(res); i++ {
+		if res[i] == '"' {
+			if i > 0 {
+				if res[i-1] == '\\' {
+					continue
+				} else {
+					res = res[:i] + "\\" + res[i:]
+					i++
+				}
+			}
+		}
+	}
+	return res
+}
+
+func FixQuoteLiterals(str string) string {
+	temp := str
+	startLen := len(temp)
+	diff := startLen - len(strings.ReplaceAll(temp, "\"", ""))
+	res := str
+	quoteNum := 0
+	for i := 0; i < len(res); i++ {
+		if res[i] == '"' {
+			quoteNum++
+			if i > 0 {
+				if res[i-1] == '\\' {
+					if quoteNum == 1 || quoteNum == diff {
+						res = res[:i-1] + res[i:]
+					}
+					continue
+				}
+			}
+		}
+	}
+	return res
 }
 
 func Eval(ds *dataStore, code string, scopes int) (bool, string) {
@@ -312,10 +338,11 @@ func Eval(ds *dataStore, code string, scopes int) (bool, string) {
 	toReturn := ""
 	if len(blocks) != 1 {
 		for _, block := range blocks {
-			Eval(ds, block, scopes+1)
+			Eval(ds, FixQuoteLiterals(block), scopes+1)
 			RemoveScopedVars(ds, scopes+1)
 		}
 	} else {
+		blocks[0] = FixQuoteLiterals(blocks[0])
 		flatBlock := Flatten(ds, blocks[0])
 		parts := SplitParams(flatBlock)
 		params := parts[1:]
@@ -413,25 +440,74 @@ func Eval(ds *dataStore, code string, scopes int) (bool, string) {
 			{
 				if len(params) == 3 {
 					valType := GetValueType(ds, params[0])
-					if Eq(valType, "List") {
+					if valType == "List" {
 						LoopListIterator(ds, scopes, params[0], params[1], params[2])
 						toReturn = "\"(looping over " + params[0] + ")\""
-					} else if Eq(valType, "Int") {
+					} else if valType == "Int" {
 						LoopTo(ds, scopes, params[0], params[1], params[2])
-						toReturn = "\"(looping over " + params[0] + ")\""
+						toReturn = "\"(looping to " + params[0] + ")\""
 					} else {
 						log.Fatal("Expecting first param to be \"List\" or \"Int\", got:", valType)
 					}
 				} else if len(params) == 4 {
 					valType := GetValueType(ds, params[0])
-					if Eq(valType, "List") {
+					if valType == "List" {
 						LoopListIndexIterator(ds, scopes, params[0], params[1], params[2], params[3])
-					} else if Eq(valType, "Int") {
-						LoopFromTo(ds, scopes, params[0], params[1], params[2], params[3])
 						toReturn = "\"(looping over " + params[0] + ")\""
+					} else if valType == "Int" {
+						LoopFromTo(ds, scopes, params[0], params[1], params[2], params[3])
+						toReturn = "\"(looping from " + params[0] + " to " + params[1] + ")\""
 					} else {
 						log.Fatal("Expecting first param to be list, got:", valType)
 					}
+				}
+			}
+		case "scan-line":
+			{
+				if len(params) == 0 {
+					line := ""
+					fmt.Scanln(&line)
+					toReturn = line
+				} else if len(params) == 1 {
+					line := ""
+					fmt.Scanln(&line)
+					if _, ok := ds.vars[params[0]]; ok {
+						SetVar(ds, params[0], line)
+						toReturn = "\"(setting " + params[0] + " to " + line + ")\""
+					} else {
+						log.Fatal("Unable to assign value to", params[0])
+					}
+				} else {
+					log.Fatal("Invalid number of parameters to \"scan-line\". Expected 0 or 2 found ", len(params))
+				}
+			}
+		case "if":
+			{
+				if len(params) == 2 {
+					info := GetValue(ds, params[0])
+					if info.variableType == Bool {
+						if val, err := strconv.ParseBool(info.value); err == nil && val {
+							Eval(ds, params[1][1:len(params[1])-1], scopes)
+						}
+					} else {
+						log.Fatal("Error in \"if\", expected type: \"Bool\" found ", info.variableType)
+					}
+				} else {
+					log.Fatal("Invalid number of parameters to \"if\". Expected 2 found ", len(params))
+				}
+			}
+		case "eq":
+			{
+				if len(params) > 0 {
+					eq := true
+					for i := 0; i < len(params)-1; i++ {
+						if GetValue(ds, params[i]).value != GetValue(ds, params[i+1]).value {
+							eq = false
+						}
+					}
+					toReturn = fmt.Sprint(eq)
+				} else {
+					log.Fatal("Invalid number of parameters to \"eq\". Expected 1 or more found", len(params))
 				}
 			}
 		default:

@@ -1,3 +1,5 @@
-(var h 0)
-(loop 4 i (body (print i)(set h i)))
-(print h)
+(loop 10 i (body
+	(if (eq i 5) (body
+		(print i "i is 5")(print "epic")
+	))
+))

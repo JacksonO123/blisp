@@ -94,3 +94,10 @@ exit:
 break:
 - breaks from list
 
+pop:
+- 1 param
+- param must be a list
+
+remove:
+- 2 params
+- first param is list, second is the index to remove

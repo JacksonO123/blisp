@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"log"
 	"math"
@@ -384,15 +385,28 @@ func Eval(ds *dataStore, code string, scopes int) (bool, string) {
 
 func main() {
 	args := os.Args[1:]
+	scanner := bufio.NewScanner(os.Stdin)
 	fileName := ""
 	benchmark := false
+	ds := new(dataStore)
+	ds.vars = make(map[string][]variable)
+	ds.scopedVars = [][]string{}
+	ds.scopedRedef = [][]string{}
 	if len(args) > 0 {
 		fileName = args[0]
 		if !strings.Contains(fileName, ".blisp") {
 			fileName += ".blisp"
 		}
 	} else {
-		fileName = "main.blisp"
+		// repl
+		for {
+			fmt.Print("> ")
+			line := ""
+			if scanner.Scan() {
+				line = scanner.Text()
+			}
+			Eval(ds, line, 0)
+		}
 	}
 	fmt.Println("Running [" + fileName + "]")
 	if len(args) > 1 {
@@ -408,10 +422,6 @@ func main() {
 		fmt.Println()
 	}
 	check(err)
-	ds := new(dataStore)
-	ds.vars = make(map[string][]variable)
-	ds.scopedVars = [][]string{}
-	ds.scopedRedef = [][]string{}
 	start := time.Now()
 	Eval(ds, string(dat), 0)
 	if benchmark {

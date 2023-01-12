@@ -1,3 +1,1 @@
-(print "Enter your name")
-(var name (scan-line))
-(print (concat "hello " name))
+(print "hi")

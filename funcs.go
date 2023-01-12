@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"os"
 	"strconv"
 	"strings"
 
@@ -162,7 +163,7 @@ func HandleFunc(ds *dataStore, scopes int, flatBlock string, parts ...string) (b
 			if len(params) > 0 {
 				toReturn = fmt.Sprint(Eq(ds, params...))
 			} else {
-				log.Fatal("Invalid number of parameters to \"eq\". Expected 1 or more found", len(params))
+				log.Fatal("Invalid number of parameters to \"eq\". Expected 1 or more found ", len(params))
 			}
 		}
 	case "body":
@@ -172,7 +173,7 @@ func HandleFunc(ds *dataStore, scopes int, flatBlock string, parts ...string) (b
 	case "append":
 		{
 			if len(params) < 2 {
-				log.Fatal("Invalid number of parameters to \"append\". Expected 2 or more found", len(params))
+				log.Fatal("Invalid number of parameters to \"append\". Expected 2 or more found ", len(params))
 			}
 			res := ListFunc(ds, AppendToList, params...)
 			if _, ok := ds.vars[params[0]]; ok {
@@ -185,7 +186,7 @@ func HandleFunc(ds *dataStore, scopes int, flatBlock string, parts ...string) (b
 	case "prepend":
 		{
 			if len(params) < 2 {
-				log.Fatal("Invalid number of parameters to \"append\". Expected 2 or more found", len(params))
+				log.Fatal("Invalid number of parameters to \"prepend\". Expected 2 or more found ", len(params))
 			}
 			res := ListFunc(ds, PrependToList, params...)
 			if _, ok := ds.vars[params[0]]; ok {
@@ -198,6 +199,13 @@ func HandleFunc(ds *dataStore, scopes int, flatBlock string, parts ...string) (b
 	case "concat":
 		{
 			toReturn = "\"" + Concat(ds, params...) + "\""
+		}
+	case "exit":
+		{
+			if len(params) != 0 {
+				log.Fatal("Invalid number of parameters to \"exit\". Expected 0 found ", len(params))
+			}
+			os.Exit(0)
 		}
 	default:
 		{
@@ -346,6 +354,7 @@ func MakeVar(ds *dataStore, scopes int, name string, val string) {
 		"append",
 		"prepend",
 		"concat",
+		"exit",
 	}
 	if StrArrIncludes(reserved, name) {
 		log.Fatal("Variable name \"" + name + "\" is reserved")

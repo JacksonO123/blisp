@@ -88,3 +88,6 @@ append, prepend:
 - first param must be a list
 - other params can be any type
 
+exit:
+- no params
+

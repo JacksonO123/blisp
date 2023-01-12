@@ -81,6 +81,8 @@ func HandleFunc(ds *dataStore, scopes int, flatBlock string, parts ...string) (b
 				toReturn = "\"(setting " + QuoteToQuoteLiteral(params[0]) + " to " + QuoteToQuoteLiteral(params[1]) + ")\""
 				SetVar(ds, params[0], params[1])
 			} else if len(params) == 3 {
+				toReturn = "\"(setting " + QuoteToQuoteLiteral(params[0]) + " at index " + params[1] + " to " + QuoteToQuoteLiteral(params[1]) + ")\""
+				SetIndex(ds, params[0], params[1], params[2])
 			} else {
 				log.Fatal("Invalid number of parameters to \"set\". Expected 2 or 3 found ", len(params))
 			}
@@ -241,6 +243,20 @@ func HandleFunc(ds *dataStore, scopes int, flatBlock string, parts ...string) (b
 			}
 			toReturn = fmt.Sprint(And(ds, params...))
 		}
+	case "or":
+		{
+			if len(params) == 0 {
+				log.Fatal("Invalid number of parameters to \"or\". Expected 1 or more found ", len(params))
+			}
+			toReturn = fmt.Sprint(Or(ds, params...))
+		}
+	case "not":
+		{
+			if len(params) != 1 {
+				log.Fatal("Invalid number of parameters to \"not\". Expected 1 or more found ", len(params))
+			}
+			toReturn = fmt.Sprint(Not(ds, params[0]))
+		}
 	default:
 		{
 			hasReturn = false
@@ -394,6 +410,8 @@ func MakeVar(ds *dataStore, scopes int, name string, val string) {
 		"remove",
 		"len",
 		"and",
+		"or",
+		"not",
 	}
 	if StrArrIncludes(reserved, name) {
 		log.Fatal("Variable name \"" + name + "\" is reserved")
@@ -698,4 +716,50 @@ func And(ds *dataStore, params ...string) bool {
 		}
 	}
 	return res
+}
+
+func SetIndex(ds *dataStore, list string, index string, val string) string {
+	info := GetValue(ds, list)
+	if info.variableType != List {
+		log.Fatal("Error in \"set\", expected list found ", info.variableType)
+	}
+	parts := SplitList(info.value)
+	listIndex := int(GetFloat64FromString(ds, index))
+	parts[listIndex] = val
+	newList := "[" + strings.Join(parts, " ") + "]"
+	if _, ok := ds.vars[list]; ok {
+		SetVar(ds, list, newList)
+	}
+	return newList
+}
+
+func Or(ds *dataStore, params ...string) bool {
+	res := false
+	for i, v := range params {
+		info := GetValue(ds, v)
+		if info.variableType != Bool {
+			log.Fatal("Error in \"or\", expected \"Bool\" found ", info.variableType)
+		}
+		val, err := strconv.ParseBool(info.value)
+		if i == 0 {
+			if err == nil {
+				res = val
+			}
+		} else {
+			res = res || val
+		}
+	}
+	return res
+}
+
+func Not(ds *dataStore, val string) bool {
+	info := GetValue(ds, val)
+	if info.variableType != Bool {
+		log.Fatal("Error in \"not\", expected \"Bool\" found ", info.variableType)
+	}
+	v, err := strconv.ParseBool(info.value)
+	if err == nil {
+		return !v
+	}
+	return true
 }

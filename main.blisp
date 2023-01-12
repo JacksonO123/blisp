@@ -1,7 +1,4 @@
-(loop 10 i (body
-	(if (eq i 5) (body
-		(print i "i is 5")
-	) (body
-		(print i "i is not 5")
-	))
-))
+(var list [ ["test" 2] 1 2 3 5 ])
+(print list)
+(append list 12 2 ["this list" true 4 4 1])
+(print (get (get list 0) 1))

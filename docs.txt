@@ -50,7 +50,7 @@ type:
 
 get:
 - 2 params
-- first param is the index, second is the list
+- first param is the list, second is the index
 
 loop:
 - 3 or 4 params

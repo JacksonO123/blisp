@@ -10,6 +10,188 @@ import (
 	"github.com/valyala/fastjson/fastfloat"
 )
 
+func HandleFunc(ds *dataStore, scopes int, flatBlock string, parts ...string) (bool, string) {
+	params := parts[1:]
+	hasReturn := true
+	toReturn := ""
+	switch parts[0] {
+	case "print":
+		{
+			toReturn = "\"(printing " + QuoteToQuoteLiteral(QuoteLiteralToQuote(strings.Join(params, ", "))) + ")\""
+			Print(ds, parts[1:]...)
+		}
+	case "+":
+		{
+			toReturn = fmt.Sprint(Add(ds, params...))
+		}
+	case "-":
+		{
+			toReturn = fmt.Sprint(Sub(ds, params...))
+		}
+	case "*":
+		{
+			toReturn = fmt.Sprint(Mult(ds, params...))
+		}
+	case "/":
+		{
+			toReturn = fmt.Sprint(Divide(ds, params...))
+		}
+	case "^":
+		{
+			if len(params) != 2 {
+				log.Fatal("Invalid number of parameters to \"^\". Expected 2 found ", len(params))
+			}
+			toReturn = fmt.Sprint(Exp(ds, params[0], params[1]))
+		}
+	case "%":
+		{
+			if len(params) != 2 {
+				log.Fatal("Invalid number of parameters to \"%\". Expected 2 found ", len(params))
+			}
+			toReturn = fmt.Sprint(Mod(ds, params[0], params[1]))
+		}
+	case "eval":
+		{
+			if len(params) == 1 {
+				hasReturn, toReturn = Eval(ds, params[0][1:len(params[0])-1], scopes)
+				if !hasReturn {
+					toReturn = "\"(evaluating " + QuoteToQuoteLiteral(params[0]) + ")\""
+				}
+			} else {
+				toReturn = "\"(evaluating " + QuoteToQuoteLiteral(strings.Join(params, ", ")) + ")\""
+				for _, v := range params {
+					if len(v) > 0 {
+						Eval(ds, v[1:len(v)-1], scopes)
+					}
+				}
+			}
+		}
+	case "var":
+		{
+			if len(params) != 2 {
+				log.Fatal("Invalid number of parameters to \"var\". Expected 2 found ", len(params))
+			}
+			toReturn = "\"(initializing " + QuoteToQuoteLiteral(params[0]) + " to " + QuoteToQuoteLiteral(params[1]) + ")\""
+			MakeVar(ds, scopes, params[0], params[1])
+		}
+	case "set":
+		{
+			if len(params) != 2 {
+				log.Fatal("Invalid number of parameters to \"set\". Expected 2 found ", len(params))
+			}
+			toReturn = "\"(setting " + QuoteToQuoteLiteral(params[0]) + " to " + QuoteToQuoteLiteral(params[1]) + ")\""
+			SetVar(ds, params[0], params[1])
+		}
+	case "free":
+		{
+			if len(params) != 1 {
+				log.Fatal("Invalid number of parameters to \"free\". Expected 1 found ", len(params))
+			}
+			toReturn = "\"(freeing " + QuoteToQuoteLiteral(params[0]) + ")\""
+			FreeVar(ds, params[0])
+		}
+	case "type":
+		{
+			if len(params) != 1 {
+				log.Fatal("Invalid number of parameters to \"type\". Expected 1 found ", len(params))
+			}
+			toReturn = "\"" + GetValueType(ds, params[0]) + "\""
+		}
+	case "get":
+		{
+			if len(params) != 2 {
+				log.Fatal("Invalid number of parameters to \"get\". Expected 2 found ", len(params))
+			}
+			toReturn = GetValueFromList(ds, params[0], params[1])
+		}
+	case "loop":
+		{
+			if len(params) == 3 {
+				valType := GetValueType(ds, params[0])
+				if valType == "List" {
+					LoopListIterator(ds, scopes, params[0], params[1], params[2])
+					toReturn = "\"(looping over " + params[0] + ")\""
+				} else if valType == "Int" {
+					LoopTo(ds, scopes, params[0], params[1], params[2])
+					toReturn = "\"(looping to " + params[0] + ")\""
+				} else {
+					log.Fatal("Expecting first param to be \"List\" or \"Int\", got:", valType)
+				}
+			} else if len(params) == 4 {
+				valType := GetValueType(ds, params[0])
+				if valType == "List" {
+					LoopListIndexIterator(ds, scopes, params[0], params[1], params[2], params[3])
+					toReturn = "\"(looping over " + params[0] + ")\""
+				} else if valType == "Int" {
+					LoopFromTo(ds, scopes, params[0], params[1], params[2], params[3])
+					toReturn = "\"(looping from " + params[0] + " to " + params[1] + ")\""
+				} else {
+					log.Fatal("Expecting first param to be list, got:", valType)
+				}
+			}
+		}
+	case "scan-line":
+		{
+			if len(params) == 0 {
+				line := ""
+				fmt.Scanln(&line)
+				toReturn = line
+			} else if len(params) == 1 {
+				line := ""
+				fmt.Scanln(&line)
+				if _, ok := ds.vars[params[0]]; ok {
+					SetVar(ds, params[0], line)
+					toReturn = "\"(setting " + params[0] + " to " + line + ")\""
+				} else {
+					log.Fatal("Unable to assign value to", params[0])
+				}
+			} else {
+				log.Fatal("Invalid number of parameters to \"scan-line\". Expected 0 or 2 found ", len(params))
+			}
+		}
+	case "if":
+		{
+			if len(params) == 2 || len(params) == 3 {
+				If(ds, scopes, params...)
+			} else {
+				log.Fatal("Invalid number of parameters to \"if\". Expected 2 found ", len(params))
+			}
+		}
+	case "eq":
+		{
+			if len(params) > 0 {
+				toReturn = fmt.Sprint(Eq(ds, params...))
+			} else {
+				log.Fatal("Invalid number of parameters to \"eq\". Expected 1 or more found", len(params))
+			}
+		}
+	case "body":
+		{
+			hasReturn, toReturn = Eval(ds, flatBlock[6:len(flatBlock)-1], scopes)
+		}
+	case "append":
+		{
+			if len(params) < 2 {
+				log.Fatal("Invalid number of parameters to \"append\". Expected 2 or more found", len(params))
+			} else {
+				res := ListFunc(ds, AppendToList, params...)
+				if _, ok := ds.vars[params[0]]; ok {
+					SetVar(ds, params[0], res)
+					toReturn = "\"(appending [" + strings.Join(params[1:], ",") + "] to " + params[0] + ")\""
+				} else {
+					toReturn = res
+				}
+			}
+		}
+	default:
+		{
+			hasReturn = false
+			fmt.Println("default", parts)
+		}
+	}
+	return hasReturn, toReturn
+}
+
 func FormatPrint(str string) string {
 	return QuoteLiteralToQuote(str)
 }
@@ -221,7 +403,7 @@ func GetValueType(ds *dataStore, val string) string {
 	return GetType(tempVar.variableType)
 }
 
-func GetValueFromList(ds *dataStore, index string, list string) string {
+func GetValueFromList(ds *dataStore, list string, index string) string {
 	if v, ok := ds.vars[list]; ok {
 		parts := SplitList(v[len(v)-1].value)
 		intIndex, err := strconv.Atoi(GetValue(ds, index).value)
@@ -301,3 +483,58 @@ func LoopFromTo(ds *dataStore, scopes int, start string, max string, indexIterat
 		Eval(ds, body, scopes)
 	}
 }
+
+func Eq(ds *dataStore, params ...string) bool {
+	eq := true
+	for i := 0; i < len(params)-1; i++ {
+		if GetValue(ds, params[i]).value != GetValue(ds, params[i+1]).value {
+			eq = false
+		}
+	}
+	return eq
+}
+
+func If(ds *dataStore, scopes int, params ...string) {
+	info := GetValue(ds, params[0])
+	if info.variableType == Bool {
+		if val, err := strconv.ParseBool(info.value); err == nil && val {
+			Eval(ds, params[1][1:len(params[1])-1], scopes)
+		} else if len(params) == 3 {
+			Eval(ds, params[2][1:len(params[2])-1], scopes)
+		}
+	} else {
+		log.Fatal("Error in \"if\", expected type: \"Bool\" found ", info.variableType)
+	}
+}
+
+func AppendToList(list string, toAppend string) string {
+	res := list
+	res = res[:len(res)-1] + " " + toAppend + "]"
+	return res
+}
+
+func ListFunc(ds *dataStore, f func(list string, val string) string, params ...string) string {
+	info := GetValue(ds, params[0])
+	if info.variableType == List {
+		list := info.value
+		for _, v := range params[1:] {
+			toAppend := GetValue(ds, v)
+			if toAppend.variableType == List {
+				parts := SplitList(toAppend.value)
+				for i := 0; i < len(parts); i++ {
+					list = f(list, parts[i])
+				}
+			} else {
+				list = f(list, toAppend.value)
+			}
+		}
+		return list
+	} else {
+		log.Fatal("Error in \"append\", expected type \"List\" found ", info.variableType)
+	}
+	return "[]"
+}
+
+// func Prepend(ds *dataStore, params ...string) string {
+
+// }

@@ -295,7 +295,9 @@ func SplitParams(str string) []string {
 				res = append(res, string(temp))
 				temp = []rune{}
 			} else if inArr {
-				if str[i] != ' ' {
+				if str[i] == ' ' && temp[len(temp)-1] != ' ' {
+					temp = append(temp, rune(str[i]))
+				} else {
 					temp = append(temp, rune(str[i]))
 				}
 			} else if str[i] == ' ' {
@@ -527,7 +529,7 @@ func Eval(ds *dataStore, code string, scopes int) (bool, string) {
 					if info.variableType == Bool {
 						if val, err := strconv.ParseBool(info.value); err == nil && val {
 							Eval(ds, params[1][1:len(params[1])-1], scopes)
-						} else {
+						} else if len(params) == 3 {
 							Eval(ds, params[2][1:len(params[2])-1], scopes)
 						}
 					} else {

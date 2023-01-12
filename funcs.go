@@ -77,11 +77,13 @@ func HandleFunc(ds *dataStore, scopes int, flatBlock string, parts ...string) (b
 		}
 	case "set":
 		{
-			if len(params) != 2 {
-				log.Fatal("Invalid number of parameters to \"set\". Expected 2 found ", len(params))
+			if len(params) == 2 {
+				toReturn = "\"(setting " + QuoteToQuoteLiteral(params[0]) + " to " + QuoteToQuoteLiteral(params[1]) + ")\""
+				SetVar(ds, params[0], params[1])
+			} else if len(params) == 3 {
+			} else {
+				log.Fatal("Invalid number of parameters to \"set\". Expected 2 or 3 found ", len(params))
 			}
-			toReturn = "\"(setting " + QuoteToQuoteLiteral(params[0]) + " to " + QuoteToQuoteLiteral(params[1]) + ")\""
-			SetVar(ds, params[0], params[1])
 		}
 	case "free":
 		{
@@ -224,6 +226,20 @@ func HandleFunc(ds *dataStore, scopes int, flatBlock string, parts ...string) (b
 				log.Fatal("Invalid number of parameters to \"remove\". Expected 2 found ", len(params))
 			}
 			toReturn = Remove(ds, params[0], params[1])
+		}
+	case "len":
+		{
+			if len(params) != 1 {
+				log.Fatal("Invalid number of parameters to \"len\". Expected 1 found ", len(params))
+			}
+			toReturn = fmt.Sprint(Len(ds, params[0]))
+		}
+	case "and":
+		{
+			if len(params) == 0 {
+				log.Fatal("Invalid number of parameters to \"and\". Expected 1 or more found ", len(params))
+			}
+			toReturn = fmt.Sprint(And(ds, params...))
 		}
 	default:
 		{
@@ -376,6 +392,8 @@ func MakeVar(ds *dataStore, scopes int, name string, val string) {
 		"break",
 		"pop",
 		"remove",
+		"len",
+		"and",
 	}
 	if StrArrIncludes(reserved, name) {
 		log.Fatal("Variable name \"" + name + "\" is reserved")
@@ -654,4 +672,30 @@ func Remove(ds *dataStore, list string, index string) string {
 	} else {
 		return ""
 	}
+}
+
+func Len(ds *dataStore, list string) int {
+	parts := SplitList(GetValue(ds, list).value)
+	return len(parts)
+}
+
+func And(ds *dataStore, params ...string) bool {
+	res := false
+	for i, v := range params {
+		info := GetValue(ds, v)
+		if info.variableType != Bool {
+			log.Fatal("Error in \"and\", expected \"Bool\" found ", info.variableType)
+		}
+		val, err := strconv.ParseBool(info.value)
+		if err == nil {
+			if i == 0 {
+				res = val
+			} else {
+				if !res || !val {
+					res = false
+				}
+			}
+		}
+	}
+	return res
 }

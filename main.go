@@ -214,7 +214,7 @@ func Flatten(ds *dataStore, block string) string {
 				hasCurrentFunc = false
 				if len(starts) > 0 {
 					slice := res[starts[len(starts)-1] : i+1]
-					hasReturn, val := Eval(ds, slice, len(starts)+1)
+					hasReturn, val := Eval(ds, slice, len(starts)+1, false)
 					RemoveScopedVars(ds, len(starts)+1)
 					if hasReturn {
 						res = res[:starts[len(starts)-1]] + val + res[i+1:]
@@ -367,19 +367,22 @@ func FixQuoteLiterals(str string) string {
 	return res
 }
 
-func Eval(ds *dataStore, code string, scopes int) (bool, string) {
+func Eval(ds *dataStore, code string, scopes int, root bool) (bool, string) {
 	blocks := GetBlocks(code)
 	hasReturn := true
 	toReturn := ""
 	if len(blocks) != 1 {
 		for _, block := range blocks {
-			Eval(ds, FixQuoteLiterals(block), scopes+1)
+			Eval(ds, FixQuoteLiterals(block), scopes+1, false)
 			RemoveScopedVars(ds, scopes+1)
 		}
 	} else {
 		blocks[0] = FixQuoteLiterals(blocks[0])
 		flatBlock := Flatten(ds, blocks[0])
 		parts := SplitParams(flatBlock)
+		if root {
+			scopes++
+		}
 		hasReturn, toReturn = HandleFunc(ds, scopes, flatBlock, parts...)
 	}
 	return hasReturn, toReturn
@@ -416,7 +419,7 @@ func main() {
 			if scanner.Scan() {
 				line = scanner.Text()
 			}
-			Eval(ds, line, 0)
+			Eval(ds, line, 0, true)
 		}
 	}
 	fmt.Println("Running [" + fileName + "]")
@@ -434,7 +437,7 @@ func main() {
 	}
 	check(err)
 	start := time.Now()
-	Eval(ds, string(dat), 0)
+	Eval(ds, string(dat), 0, true)
 	if benchmark {
 		fmt.Println("\nFinished in", time.Since(start))
 	}

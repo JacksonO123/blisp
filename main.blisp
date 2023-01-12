@@ -1,1 +1,1 @@
-(print "hi")
+(print (var h 2) h)

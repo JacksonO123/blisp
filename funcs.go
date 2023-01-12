@@ -54,7 +54,7 @@ func HandleFunc(ds *dataStore, scopes int, flatBlock string, parts ...string) (b
 	case "eval":
 		{
 			if len(params) == 1 {
-				hasReturn, toReturn = Eval(ds, params[0][1:len(params[0])-1], scopes)
+				hasReturn, toReturn = Eval(ds, params[0][1:len(params[0])-1], scopes, false)
 				if !hasReturn {
 					toReturn = "\"(evaluating " + QuoteToQuoteLiteral(params[0]) + ")\""
 				}
@@ -62,7 +62,7 @@ func HandleFunc(ds *dataStore, scopes int, flatBlock string, parts ...string) (b
 				toReturn = "\"(evaluating " + QuoteToQuoteLiteral(strings.Join(params, ", ")) + ")\""
 				for _, v := range params {
 					if len(v) > 0 {
-						Eval(ds, v[1:len(v)-1], scopes)
+						Eval(ds, v[1:len(v)-1], scopes, false)
 					}
 				}
 			}
@@ -168,7 +168,7 @@ func HandleFunc(ds *dataStore, scopes int, flatBlock string, parts ...string) (b
 		}
 	case "body":
 		{
-			hasReturn, toReturn = Eval(ds, flatBlock[6:len(flatBlock)-1], scopes)
+			hasReturn, toReturn = Eval(ds, flatBlock[6:len(flatBlock)-1], scopes, false)
 		}
 	case "append":
 		{
@@ -234,6 +234,7 @@ func Print(ds *dataStore, params ...string) {
 		if err == nil {
 			res = append(res, v)
 		} else {
+			fmt.Println(ds.vars)
 			if v == "true" || v == "false" {
 				res = append(res, v)
 			} else if val, ok := ds.vars[v]; ok {
@@ -384,6 +385,7 @@ func MakeVar(ds *dataStore, scopes int, name string, val string) {
 	} else {
 		ds.scopedVars[scopes-1] = append(ds.scopedVars[scopes-1], name)
 	}
+	fmt.Println(ds.vars)
 }
 
 func SetVar(ds *dataStore, name string, val string) {
@@ -468,7 +470,7 @@ func LoopListIterator(ds *dataStore, scopes int, list string, iteratorName strin
 		} else {
 			SetVar(ds, iteratorName, v)
 		}
-		Eval(ds, body, scopes)
+		Eval(ds, body, scopes, false)
 	}
 }
 
@@ -484,7 +486,7 @@ func LoopListIndexIterator(ds *dataStore, scopes int, list string, indexIterator
 			SetVar(ds, iteratorName, v)
 			SetVar(ds, indexIterator, fmt.Sprint(i))
 		}
-		Eval(ds, body, scopes)
+		Eval(ds, body, scopes, false)
 	}
 }
 
@@ -497,7 +499,7 @@ func LoopTo(ds *dataStore, scopes int, max string, indexIterator string, body st
 		} else {
 			SetVar(ds, indexIterator, fmt.Sprint(i))
 		}
-		Eval(ds, body, scopes)
+		Eval(ds, body, scopes, false)
 	}
 }
 
@@ -511,7 +513,7 @@ func LoopFromTo(ds *dataStore, scopes int, start string, max string, indexIterat
 		} else {
 			SetVar(ds, indexIterator, fmt.Sprint(i))
 		}
-		Eval(ds, body, scopes)
+		Eval(ds, body, scopes, false)
 	}
 }
 
@@ -529,9 +531,9 @@ func If(ds *dataStore, scopes int, params ...string) {
 	info := GetValue(ds, params[0])
 	if info.variableType == Bool {
 		if val, err := strconv.ParseBool(info.value); err == nil && val {
-			Eval(ds, params[1][1:len(params[1])-1], scopes)
+			Eval(ds, params[1][1:len(params[1])-1], scopes, false)
 		} else if len(params) == 3 {
-			Eval(ds, params[2][1:len(params[2])-1], scopes)
+			Eval(ds, params[2][1:len(params[2])-1], scopes, false)
 		}
 	} else {
 		log.Fatal("Error in \"if\", expected type: \"Bool\" found ", info.variableType)

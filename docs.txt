@@ -91,3 +91,6 @@ append, prepend:
 exit:
 - no params
 
+break:
+- breaks from list
+

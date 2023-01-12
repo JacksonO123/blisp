@@ -217,6 +217,9 @@ func Flatten(ds *dataStore, block string) string {
 					hasReturn, val := Eval(ds, slice, len(starts)+1, false)
 					RemoveScopedVars(ds, len(starts)+1)
 					if hasReturn {
+						if val == "(break)" {
+							return "break"
+						}
 						res = res[:starts[len(starts)-1]] + val + res[i+1:]
 						i -= len(slice) - len(val)
 						starts = starts[:len(starts)-1]
@@ -372,8 +375,16 @@ func Eval(ds *dataStore, code string, scopes int, root bool) (bool, string) {
 	hasReturn := true
 	toReturn := ""
 	if len(blocks) != 1 {
+		hasReturn = false
 		for _, block := range blocks {
-			Eval(ds, FixQuoteLiterals(block), scopes+1, false)
+			blockReturn, blockVal := Eval(ds, FixQuoteLiterals(block), scopes+1, false)
+			if blockReturn {
+				if blockVal == "(break)" {
+					hasReturn = true
+					toReturn = "(break)"
+					break
+				}
+			}
 			RemoveScopedVars(ds, scopes+1)
 		}
 	} else {

@@ -153,7 +153,7 @@ func HandleFunc(ds *dataStore, scopes int, flatBlock string, parts ...string) (b
 	case "if":
 		{
 			if len(params) == 2 || len(params) == 3 {
-				If(ds, scopes, params...)
+				hasReturn, toReturn = If(ds, scopes, params...)
 			} else {
 				log.Fatal("Invalid number of parameters to \"if\". Expected 2 found ", len(params))
 			}
@@ -206,6 +206,24 @@ func HandleFunc(ds *dataStore, scopes int, flatBlock string, parts ...string) (b
 				log.Fatal("Invalid number of parameters to \"exit\". Expected 0 found ", len(params))
 			}
 			os.Exit(0)
+		}
+	case "break":
+		{
+			toReturn = "(break)"
+		}
+	case "pop":
+		{
+			if len(params) != 1 {
+				log.Fatal("Invalid number of parameters to \"pop\". Expected 1 found ", len(params))
+			}
+			toReturn = Pop(ds, params[0])
+		}
+	case "remove":
+		{
+			if len(params) != 2 {
+				log.Fatal("Invalid number of parameters to \"remove\". Expected 2 found ", len(params))
+			}
+			toReturn = Remove(ds, params[0], params[1])
 		}
 	default:
 		{
@@ -355,6 +373,9 @@ func MakeVar(ds *dataStore, scopes int, name string, val string) {
 		"prepend",
 		"concat",
 		"exit",
+		"break",
+		"pop",
+		"remove",
 	}
 	if StrArrIncludes(reserved, name) {
 		log.Fatal("Variable name \"" + name + "\" is reserved")
@@ -497,7 +518,12 @@ func LoopTo(ds *dataStore, scopes int, max string, indexIterator string, body st
 		} else {
 			SetVar(ds, indexIterator, fmt.Sprint(i))
 		}
-		Eval(ds, body, scopes, false)
+		hasReturn, val := Eval(ds, body, scopes, false)
+		if hasReturn {
+			if val == "(break)" {
+				break
+			}
+		}
 	}
 }
 
@@ -525,22 +551,30 @@ func Eq(ds *dataStore, params ...string) bool {
 	return eq
 }
 
-func If(ds *dataStore, scopes int, params ...string) {
+func If(ds *dataStore, scopes int, params ...string) (bool, string) {
+	hasReturn := true
+	toReturn := ""
 	info := GetValue(ds, params[0])
 	if info.variableType == Bool {
 		if val, err := strconv.ParseBool(info.value); err == nil && val {
-			Eval(ds, params[1][1:len(params[1])-1], scopes, false)
+			hasReturn, toReturn = Eval(ds, params[1][1:len(params[1])-1], scopes, false)
 		} else if len(params) == 3 {
-			Eval(ds, params[2][1:len(params[2])-1], scopes, false)
+			hasReturn, toReturn = Eval(ds, params[2][1:len(params[2])-1], scopes, false)
 		}
 	} else {
 		log.Fatal("Error in \"if\", expected type: \"Bool\" found ", info.variableType)
 	}
+	return hasReturn, toReturn
 }
 
 func AppendToList(list string, toAppend string) string {
 	res := list
-	res = res[:len(res)-1] + " " + toAppend + "]"
+	appendTo := res[:len(res)-1]
+	if len(appendTo) == 1 {
+		res = res[:len(res)-1] + toAppend + "]"
+	} else {
+		res = res[:len(res)-1] + " " + toAppend + "]"
+	}
 	return res
 }
 
@@ -583,4 +617,41 @@ func Concat(ds *dataStore, params ...string) string {
 		}
 	}
 	return res
+}
+
+func Pop(ds *dataStore, list string) string {
+	val := GetValue(ds, list)
+	if val.variableType != List {
+		log.Fatal("Error in \"pop\" expected \"List\" found ", val.variableType)
+	}
+	listItems := SplitList(val.value)
+	if len(listItems) > 0 {
+		lastItem := listItems[len(listItems)-1]
+		listItems = listItems[:len(listItems)-1]
+		if _, ok := ds.vars[list]; ok {
+			SetVar(ds, list, strings.Join(listItems, " "))
+		}
+		return lastItem
+	} else {
+		return ""
+	}
+}
+
+func Remove(ds *dataStore, list string, index string) string {
+	val := GetValue(ds, list)
+	listIndex := int(GetFloat64FromString(ds, index))
+	if val.variableType != List {
+		log.Fatal("Error in \"remove\" expected \"List\" found ", val.variableType)
+	}
+	listItems := SplitList(val.value)
+	if len(listItems) > 0 {
+		item := listItems[listIndex]
+		listItems = append(listItems[:listIndex], listItems[listIndex+1:]...)
+		if _, ok := ds.vars[list]; ok {
+			SetVar(ds, list, strings.Join(listItems, " "))
+		}
+		return item
+	} else {
+		return ""
+	}
 }

@@ -234,7 +234,6 @@ func Print(ds *dataStore, params ...string) {
 		if err == nil {
 			res = append(res, v)
 		} else {
-			fmt.Println(ds.vars)
 			if v == "true" || v == "false" {
 				res = append(res, v)
 			} else if val, ok := ds.vars[v]; ok {
@@ -385,7 +384,6 @@ func MakeVar(ds *dataStore, scopes int, name string, val string) {
 	} else {
 		ds.scopedVars[scopes-1] = append(ds.scopedVars[scopes-1], name)
 	}
-	fmt.Println(ds.vars)
 }
 
 func SetVar(ds *dataStore, name string, val string) {

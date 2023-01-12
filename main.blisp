@@ -1,5 +1,7 @@
 (loop 10 i (body
 	(if (eq i 5) (body
-		(print i "i is 5")(print "epic")
+		(print i "i is 5")
+	) (body
+		(print i "i is not 5")
 	))
 ))

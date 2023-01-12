@@ -140,6 +140,8 @@ func MakeVar(ds *dataStore, scopes int, name string, val string) {
 		"loop",
 		"body",
 		"scan-line",
+		"if",
+		"eq",
 	}
 	if StrArrIncludes(reserved, name) {
 		log.Fatal("Variable name \"" + name + "\" is reserved")
@@ -253,7 +255,7 @@ func LoopListIterator(ds *dataStore, scopes int, list string, iteratorName strin
 		} else {
 			SetVar(ds, iteratorName, v)
 		}
-		Eval(ds, body[1:len(body)-1], scopes)
+		Eval(ds, body, scopes)
 	}
 }
 
@@ -269,7 +271,7 @@ func LoopListIndexIterator(ds *dataStore, scopes int, list string, indexIterator
 			SetVar(ds, iteratorName, v)
 			SetVar(ds, indexIterator, fmt.Sprint(i))
 		}
-		Eval(ds, body[1:len(body)-1], scopes)
+		Eval(ds, body, scopes)
 	}
 }
 
@@ -282,7 +284,7 @@ func LoopTo(ds *dataStore, scopes int, max string, indexIterator string, body st
 		} else {
 			SetVar(ds, indexIterator, fmt.Sprint(i))
 		}
-		Eval(ds, body[1:len(body)-1], scopes)
+		Eval(ds, body, scopes)
 	}
 }
 
@@ -296,6 +298,6 @@ func LoopFromTo(ds *dataStore, scopes int, start string, max string, indexIterat
 		} else {
 			SetVar(ds, indexIterator, fmt.Sprint(i))
 		}
-		Eval(ds, body[1:len(body)-1], scopes)
+		Eval(ds, body, scopes)
 	}
 }

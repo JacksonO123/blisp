@@ -184,11 +184,38 @@ func RemoveScopedVars(ds *dataStore, keepScopes int) {
 	}
 }
 
+func GetScopeEnd(block string) int {
+	scopes := 1
+	inString := false
+	for i, v := range block {
+		if v == '"' {
+			if i > 0 {
+				if block[i-1] != '\\' {
+					inString = !inString
+				}
+			} else {
+				inString = !inString
+			}
+		}
+		if !inString {
+			if v == '(' {
+				scopes++
+			} else if v == ')' {
+				scopes--
+			}
+		}
+		if scopes == 0 {
+			return i
+		}
+	}
+	return len(block)
+}
+
 func Flatten(ds *dataStore, block string) string {
 	res := block[1 : len(block)-1]
 	inString := false
 	starts := []int{}
-	funcNames := []string{""}
+	funcName := ""
 	hasCurrentFunc := false
 	for i := 0; i < len(res); i++ {
 		if res[i] == '"' {
@@ -202,20 +229,11 @@ func Flatten(ds *dataStore, block string) string {
 		} else if !inString {
 			if res[i] == '(' {
 				hasCurrentFunc = false
-				funcNames = append(funcNames, "")
+				funcName = ""
 				starts = append(starts, i)
 			} else if res[i] == ')' {
 				hasCurrentFunc = false
-				if StrArrIncludes(funcNames, "body") {
-					if funcNames[len(funcNames)-1] == "body" {
-						slice := res[starts[len(starts)-1]+6 : i]
-						replaceWith := QuoteToQuoteLiteral(slice)
-						res = res[:starts[len(starts)-1]] + "\"" + replaceWith + "\"" + res[i+1:]
-						i -= len(slice) + 5 - len(replaceWith)
-					}
-					starts = starts[:len(starts)-1]
-					funcNames = funcNames[:len(funcNames)-1]
-				} else {
+				if len(starts) > 0 {
 					slice := res[starts[len(starts)-1] : i+1]
 					hasReturn, val := Eval(ds, slice, len(starts)+1)
 					RemoveScopedVars(ds, len(starts)+1)
@@ -228,9 +246,12 @@ func Flatten(ds *dataStore, block string) string {
 			} else if res[i] == ' ' {
 				if !hasCurrentFunc {
 					hasCurrentFunc = true
+					if funcName == "body" {
+						i += GetScopeEnd(res[i:])
+					}
 				}
 			} else if !hasCurrentFunc {
-				funcNames[len(funcNames)-1] += string(res[i])
+				funcName += string(res[i])
 			}
 		}
 	}
@@ -240,14 +261,16 @@ func Flatten(ds *dataStore, block string) string {
 
 func SplitParams(str string) []string {
 	res := []string{}
-	temp := ""
+	temp := []rune{}
 	inString := false
 	inArr := false
-	strChars := strings.Split(str, "")
-	for i, v := range strChars {
-		if v == "\"" {
+	parens := 0
+	hasFuncName := false
+	funcName := ""
+	for i := 0; i < len(str); i++ {
+		if str[i] == '"' {
 			if i > 0 {
-				if strChars[i-1] != "\\" {
+				if str[i-1] != '\\' {
 					inString = !inString
 				}
 			} else {
@@ -255,36 +278,52 @@ func SplitParams(str string) []string {
 			}
 		}
 		if !inString {
-			if v == "[" {
+			if str[i] == '(' {
+				parens++
+				hasFuncName = false
+				funcName = ""
+			} else if str[i] == ')' {
+				parens--
+				hasFuncName = false
+				funcName = ""
+			} else if str[i] == '[' {
 				inArr = true
-				temp += v
-			} else if v == "]" {
+				temp = append(temp, rune(str[i]))
+			} else if str[i] == ']' {
 				inArr = false
-				temp += v
-				res = append(res, temp)
-				temp = ""
+				temp = append(temp, rune(str[i]))
+				res = append(res, string(temp))
+				temp = []rune{}
 			} else if inArr {
-				if v == " " && temp[len(temp)-1] == ',' {
-					continue
-				} else {
-					temp += v
+				if str[i] != ' ' {
+					temp = append(temp, rune(str[i]))
 				}
-			} else {
-				if v == " " {
-					if len(temp) > 0 {
-						res = append(res, temp)
+			} else if str[i] == ' ' {
+				if !hasFuncName {
+					hasFuncName = true
+					if funcName == "body" {
+						start := i
+						i += GetScopeEnd(str[start:])
+						res = append(res, str[start-4:i])
+						temp = []rune{}
 					}
-					temp = ""
-				} else {
-					temp += v
+				}
+				if len(temp) > 0 {
+					res = append(res, string(temp))
+				}
+				temp = []rune{}
+			} else {
+				temp = append(temp, rune(str[i]))
+				if !hasFuncName {
+					funcName += string(str[i])
 				}
 			}
 		} else {
-			temp += v
+			temp = append(temp, rune(str[i]))
 		}
 	}
 	if len(temp) > 0 {
-		res = append(res, temp)
+		res = append(res, string(temp))
 	}
 	return res
 }
@@ -483,11 +522,13 @@ func Eval(ds *dataStore, code string, scopes int) (bool, string) {
 			}
 		case "if":
 			{
-				if len(params) == 2 {
+				if len(params) == 2 || len(params) == 3 {
 					info := GetValue(ds, params[0])
 					if info.variableType == Bool {
 						if val, err := strconv.ParseBool(info.value); err == nil && val {
 							Eval(ds, params[1][1:len(params[1])-1], scopes)
+						} else {
+							Eval(ds, params[2][1:len(params[2])-1], scopes)
 						}
 					} else {
 						log.Fatal("Error in \"if\", expected type: \"Bool\" found ", info.variableType)
@@ -509,6 +550,10 @@ func Eval(ds *dataStore, code string, scopes int) (bool, string) {
 				} else {
 					log.Fatal("Invalid number of parameters to \"eq\". Expected 1 or more found", len(params))
 				}
+			}
+		case "body":
+			{
+				hasReturn, toReturn = Eval(ds, flatBlock[6:len(flatBlock)-1], scopes)
 			}
 		default:
 			{

@@ -82,3 +82,9 @@ eq:
 body:
 - not a function
 - equivalent of "{ ... }" in languages like c, c++, java, javascript, etc
+
+append, prepend:
+- 2 or more params
+- first param must be a list
+- other params can be any type
+

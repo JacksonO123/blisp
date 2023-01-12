@@ -17,7 +17,7 @@ func HandleFunc(ds *dataStore, scopes int, flatBlock string, parts ...string) (b
 	switch parts[0] {
 	case "print":
 		{
-			toReturn = "\"(printing " + QuoteToQuoteLiteral(QuoteLiteralToQuote(strings.Join(params, ", "))) + ")\""
+			toReturn = "\"(printing " + QuoteToQuoteLiteral(strings.Join(params, ", ")) + ")\""
 			Print(ds, parts[1:]...)
 		}
 	case "+":
@@ -173,15 +173,31 @@ func HandleFunc(ds *dataStore, scopes int, flatBlock string, parts ...string) (b
 		{
 			if len(params) < 2 {
 				log.Fatal("Invalid number of parameters to \"append\". Expected 2 or more found", len(params))
-			} else {
-				res := ListFunc(ds, AppendToList, params...)
-				if _, ok := ds.vars[params[0]]; ok {
-					SetVar(ds, params[0], res)
-					toReturn = "\"(appending [" + strings.Join(params[1:], ",") + "] to " + params[0] + ")\""
-				} else {
-					toReturn = res
-				}
 			}
+			res := ListFunc(ds, AppendToList, params...)
+			if _, ok := ds.vars[params[0]]; ok {
+				SetVar(ds, params[0], res)
+				toReturn = "\"(appending [" + QuoteToQuoteLiteral(strings.Join(params[1:], ",")) + "] to " + params[0] + ")\""
+			} else {
+				toReturn = res
+			}
+		}
+	case "prepend":
+		{
+			if len(params) < 2 {
+				log.Fatal("Invalid number of parameters to \"append\". Expected 2 or more found", len(params))
+			}
+			res := ListFunc(ds, PrependToList, params...)
+			if _, ok := ds.vars[params[0]]; ok {
+				SetVar(ds, params[0], res)
+				toReturn = "\"(prepending [" + QuoteToQuoteLiteral(strings.Join(params[1:], " ")) + "] to " + params[0] + ")\""
+			} else {
+				toReturn = res
+			}
+		}
+	case "concat":
+		{
+			toReturn = "\"" + Concat(ds, params...) + "\""
 		}
 	default:
 		{
@@ -193,6 +209,9 @@ func HandleFunc(ds *dataStore, scopes int, flatBlock string, parts ...string) (b
 }
 
 func FormatPrint(str string) string {
+	if len(str) > 2 && str[0] == '"' && str[len(str)-1] == '"' {
+		str = str[1 : len(str)-1]
+	}
 	return QuoteLiteralToQuote(str)
 }
 
@@ -324,6 +343,9 @@ func MakeVar(ds *dataStore, scopes int, name string, val string) {
 		"scan-line",
 		"if",
 		"eq",
+		"append",
+		"prepend",
+		"concat",
 	}
 	if StrArrIncludes(reserved, name) {
 		log.Fatal("Variable name \"" + name + "\" is reserved")
@@ -414,7 +436,7 @@ func GetValueFromList(ds *dataStore, list string, index string) string {
 	} else {
 		tempVar := GetVariableInfo("", list)
 		if tempVar.variableType != List {
-			log.Fatal(list + " is not a list")
+			log.Fatal("Error getting " + index + " from " + list + ", " + list + " is not a list")
 		} else {
 			parts := SplitList(tempVar.value)
 			intIndex, err := strconv.Atoi(index)
@@ -513,6 +535,12 @@ func AppendToList(list string, toAppend string) string {
 	return res
 }
 
+func PrependToList(list string, toPrepend string) string {
+	res := list
+	res = "[" + toPrepend + " " + res[1:]
+	return res
+}
+
 func ListFunc(ds *dataStore, f func(list string, val string) string, params ...string) string {
 	info := GetValue(ds, params[0])
 	if info.variableType == List {
@@ -535,6 +563,15 @@ func ListFunc(ds *dataStore, f func(list string, val string) string, params ...s
 	return "[]"
 }
 
-// func Prepend(ds *dataStore, params ...string) string {
-
-// }
+func Concat(ds *dataStore, params ...string) string {
+	res := ""
+	for _, v := range params {
+		info := GetValue(ds, v)
+		if info.variableType == String {
+			res += info.value[1 : len(info.value)-1]
+		} else {
+			res += info.value
+		}
+	}
+	return res
+}

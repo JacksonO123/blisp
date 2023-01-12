@@ -6,7 +6,9 @@ import (
 	"log"
 	"math"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/valyala/fastjson/fastfloat"
@@ -399,9 +401,18 @@ func main() {
 		}
 	} else {
 		// repl
+		sigs := make(chan os.Signal, 1)
+		signal.Notify(sigs, syscall.SIGINT)
+		go func() {
+			<-sigs
+			fmt.Println(" | Closing...")
+			fmt.Println()
+			os.Exit(0)
+		}()
 		for {
 			fmt.Print("> ")
 			line := ""
+			scanner.Text()
 			if scanner.Scan() {
 				line = scanner.Text()
 			}

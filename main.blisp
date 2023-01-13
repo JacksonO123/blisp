@@ -1,11 +1,5 @@
-(func is-even n (body
-	(if (eq (% n 2) 0) (body
-		(print (concat n " is even"))
-	) (body
-		(print (concat n " is odd"))
-	))
+(var list [1 2 3 4 5])
+(loop (len list) 0 i (body
+	(set list (- (len list) i) i)
 ))
-
-(loop 10 i (body
-	(is-even i)
-))
+(print list)

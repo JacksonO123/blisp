@@ -42,6 +42,7 @@ var reserved []string = []string{
 	"or",
 	"not",
 	"func",
+	"return",
 }
 
 func HandleFunc(ds *dataStore, scopes int, flatBlock string, parts ...string) (bool, string) {
@@ -53,7 +54,8 @@ func HandleFunc(ds *dataStore, scopes int, flatBlock string, parts ...string) (b
 	} else {
 		hasReturn = false
 		if _, ok := ds.funcs[parts[0]]; ok {
-			CallFunc(ds, scopes+1, parts...)
+			ds.inFunc = true
+			return CallFunc(ds, scopes+1, parts...)
 		} else {
 			fmt.Println("default", "["+strings.Join(parts, ", ")+"]")
 		}
@@ -516,7 +518,7 @@ func SetIndex(ds *dataStore, list string, index string, val string) string {
 	}
 	parts := SplitList(info.value)
 	listIndex := int(GetFloat64FromString(ds, index))
-	parts[listIndex] = val
+	parts[listIndex] = GetValue(ds, val).value
 	newList := "[" + strings.Join(parts, " ") + "]"
 	if _, ok := ds.vars[list]; ok {
 		SetVar(ds, list, newList)
@@ -602,7 +604,7 @@ func MakeFunction(ds *dataStore, scopes int, params ...string) {
 	}
 }
 
-func CallFunc(ds *dataStore, scopes int, params ...string) {
+func CallFunc(ds *dataStore, scopes int, params ...string) (bool, string) {
 	name := params[0]
 	inputs := params[1:]
 	f := ds.funcs[name][len(ds.funcs[name])-1]
@@ -610,5 +612,7 @@ func CallFunc(ds *dataStore, scopes int, params ...string) {
 	for i, v := range funcParams {
 		MakeVar(ds, scopes, v, GetValue(ds, inputs[i]).value)
 	}
-	Eval(ds, f.body, scopes, false)
+	hasReturn, toReturn := Eval(ds, f.body, scopes, false)
+	ds.inFunc = false
+	return hasReturn, toReturn
 }

@@ -44,6 +44,8 @@ type dataStore struct {
 	scopedFuncs      [][]string
 	scopedRedefFuncs [][]string
 	builtins         map[string]func(*dataStore, int, string, []string) (bool, string)
+	inFunc           bool
+	inLoop           bool
 }
 
 func check(e error) {
@@ -243,7 +245,17 @@ func Flatten(ds *dataStore, block string) string {
 					RemoveScopedVars(ds, len(starts)+1)
 					if hasReturn {
 						if val == "(break)" {
-							return "break"
+							if ds.inLoop {
+								return "break"
+							} else {
+								log.Fatal("Not in loop, cannot break")
+							}
+						} else if strings.Index(val, "(return") == 0 {
+							if ds.inFunc {
+								return val
+							} else {
+								log.Fatal("Not in func, cannot return")
+							}
 						}
 						res = res[:starts[len(starts)-1]] + val + res[i+1:]
 						i -= len(slice) - len(val)
@@ -442,6 +454,8 @@ func main() {
 	ds.scopedFuncs = [][]string{}
 	ds.scopedRedefFuncs = [][]string{}
 	ds.builtins = make(map[string]func(*dataStore, int, string, []string) (bool, string))
+	ds.inFunc = false
+	ds.inLoop = false
 	InitBuiltins(ds)
 	if len(args) > 0 {
 		fileName = args[0]

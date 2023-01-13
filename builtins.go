@@ -92,23 +92,29 @@ func InitBuiltins(ds *dataStore) {
 	}
 	ds.builtins["loop"] = func(ds *dataStore, scopes int, flatBlock string, params []string) (bool, string) {
 		if len(params) == 3 {
+			ds.inLoop = true
 			valType := GetValueType(ds, params[0])
 			if valType == "List" {
 				LoopListIterator(ds, scopes, params[0], params[1], params[2])
+				ds.inLoop = false
 				return true, "\"(looping over " + params[0] + ")\""
 			} else if valType == "Int" {
 				LoopTo(ds, scopes, params[0], params[1], params[2])
+				ds.inLoop = false
 				return true, "\"(looping to " + params[0] + ")\""
 			} else {
 				log.Fatal("Expecting first param to be \"List\" or \"Int\", got:", valType)
 			}
 		} else if len(params) == 4 {
+			ds.inLoop = true
 			valType := GetValueType(ds, params[0])
 			if valType == "List" {
 				LoopListIndexIterator(ds, scopes, params[0], params[1], params[2], params[3])
+				ds.inLoop = false
 				return true, "\"(looping over " + params[0] + ")\""
 			} else if valType == "Int" {
 				LoopFromTo(ds, scopes, params[0], params[1], params[2], params[3])
+				ds.inLoop = false
 				return true, "\"(looping from " + params[0] + " to " + params[1] + ")\""
 			} else {
 				log.Fatal("Expecting first param to be list, got:", valType)
@@ -233,5 +239,15 @@ func InitBuiltins(ds *dataStore) {
 		}
 		MakeFunction(ds, scopes, params...)
 		return true, "\"(setting function " + params[0] + " with " + strings.Join(params[1:], " ") + ")\""
+	}
+	ds.builtins["return"] = func(ds *dataStore, scopes int, flatBlock string, params []string) (bool, string) {
+		if !ds.inFunc {
+			log.Fatal("Not in func, cannot return")
+		}
+		vals := []string{}
+		for _, v := range params {
+			vals = append(vals, GetValue(ds, v).value)
+		}
+		return true, strings.Join(vals, " ")
 	}
 }

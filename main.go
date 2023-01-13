@@ -145,7 +145,7 @@ func GetBlocks(code string) []string {
 			temp = append(temp, c)
 			continue
 		} else if c == '\t' {
-			if len(temp) > 0 && temp[len(temp)-1] != ' ' {
+			if len(temp) > 0 && temp[len(temp)-1] != ' ' && temp[len(temp)-1] != ')' {
 				temp = append(temp, ' ')
 			}
 			continue

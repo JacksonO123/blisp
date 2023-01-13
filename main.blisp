@@ -1,2 +1,5 @@
-(func n h (body (print h)))
-(n 2)
+(loop 10 5 i (body
+	(if (eq (% i 2) 0) (body
+		(print i)
+	))
+))

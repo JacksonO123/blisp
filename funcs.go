@@ -49,7 +49,7 @@ func HandleFunc(ds *dataStore, scopes int, flatBlock string, parts ...string) (b
 	hasReturn := true
 	toReturn := ""
 	if val, ok := ds.builtins[parts[0]]; ok {
-		val(ds, scopes, flatBlock, params)
+		hasReturn, toReturn = val(ds, scopes, flatBlock, params)
 	} else {
 		hasReturn = false
 		if _, ok := ds.funcs[parts[0]]; ok {
@@ -384,9 +384,9 @@ func If(ds *dataStore, scopes int, params ...string) (bool, string) {
 	info := GetValue(ds, params[0])
 	if info.variableType == Bool {
 		if val, err := strconv.ParseBool(info.value); err == nil && val {
-			hasReturn, toReturn = Eval(ds, params[1][1:len(params[1])-1], scopes, false)
+			hasReturn, toReturn = Eval(ds, params[1], scopes, false)
 		} else if len(params) == 3 {
-			hasReturn, toReturn = Eval(ds, params[2][1:len(params[2])-1], scopes, false)
+			hasReturn, toReturn = Eval(ds, params[2], scopes, false)
 		}
 	} else {
 		log.Fatal("Error in \"if\", expected type: \"Bool\" found ", info.variableType)

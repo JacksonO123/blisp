@@ -11,6 +11,40 @@ import (
 	"github.com/valyala/fastjson/fastfloat"
 )
 
+var reserved []string = []string{
+	"print",
+	"+",
+	"-",
+	"*",
+	"/",
+	"%",
+	"eval",
+	"var",
+	"set",
+	"free",
+	"type",
+	"get",
+	"true",
+	"false",
+	"loop",
+	"body",
+	"scan-line",
+	"if",
+	"eq",
+	"append",
+	"prepend",
+	"concat",
+	"exit",
+	"break",
+	"pop",
+	"remove",
+	"len",
+	"and",
+	"or",
+	"not",
+	"func",
+}
+
 func HandleFunc(ds *dataStore, scopes int, flatBlock string, parts ...string) (bool, string) {
 	params := parts[1:]
 	hasReturn := true
@@ -19,7 +53,7 @@ func HandleFunc(ds *dataStore, scopes int, flatBlock string, parts ...string) (b
 	case "print":
 		{
 			toReturn = "\"(printing " + QuoteToQuoteLiteral(strings.Join(params, ", ")) + ")\""
-			Print(ds, parts[1:]...)
+			Print(ds, params...)
 		}
 	case "+":
 		{
@@ -257,10 +291,22 @@ func HandleFunc(ds *dataStore, scopes int, flatBlock string, parts ...string) (b
 			}
 			toReturn = fmt.Sprint(Not(ds, params[0]))
 		}
+	case "func":
+		{
+			if len(params) < 3 {
+				log.Fatal("Invalid number of parameters to \"func\". Expected 3 or more found ", len(params))
+			}
+			toReturn = "\"(setting function " + params[0] + " with " + strings.Join(params[1:], " ") + ")\""
+			MakeFunction(ds, scopes, params...)
+		}
 	default:
 		{
 			hasReturn = false
-			fmt.Println("default", parts)
+			if _, ok := ds.funcs[parts[0]]; ok {
+				CallFunc(ds, scopes+1, parts...)
+			} else {
+				fmt.Println("default", "["+strings.Join(parts, ", ")+"]")
+			}
 		}
 	}
 	return hasReturn, toReturn
@@ -284,13 +330,8 @@ func Print(ds *dataStore, params ...string) {
 		if err == nil {
 			res = append(res, v)
 		} else {
-			if v == "true" || v == "false" {
-				res = append(res, v)
-			} else if val, ok := ds.vars[v]; ok {
-				res = append(res, val[len(val)-1].value)
-			} else {
-				log.Fatal("Unknown value: " + v)
-			}
+			info := GetValue(ds, v)
+			res = append(res, info.value)
 		}
 	}
 	fmt.Println(FormatPrint(strings.Join(res, ", ")))
@@ -331,8 +372,12 @@ func Add(ds *dataStore, params ...string) float64 {
 func Sub(ds *dataStore, params ...string) float64 {
 	nums := GetFloat64FromStrings(ds, params...)
 	var res float64 = nums[0]
-	for _, v := range nums[1:] {
-		res -= v
+	if len(params) == 1 {
+		res *= -1
+	} else {
+		for _, v := range nums[1:] {
+			res -= v
+		}
 	}
 	return res
 }
@@ -381,38 +426,7 @@ func MakeVar(ds *dataStore, scopes int, name string, val string) {
 		log.Fatal("Variable already initialized: " + name)
 		return
 	}
-	reserved := []string{
-		"print",
-		"+",
-		"-",
-		"*",
-		"/",
-		"%",
-		"eval",
-		"var",
-		"set",
-		"free",
-		"type",
-		"get",
-		"true",
-		"false",
-		"loop",
-		"body",
-		"scan-line",
-		"if",
-		"eq",
-		"append",
-		"prepend",
-		"concat",
-		"exit",
-		"break",
-		"pop",
-		"remove",
-		"len",
-		"and",
-		"or",
-		"not",
-	}
+
 	if StrArrIncludes(reserved, name) {
 		log.Fatal("Variable name \"" + name + "\" is reserved")
 		return
@@ -459,6 +473,14 @@ func FreeVar(ds *dataStore, name string) {
 	delete(ds.vars, name)
 }
 
+func FreeFunc(ds *dataStore, name string) {
+	if _, ok := ds.funcs[name]; !ok {
+		log.Fatal("Unable to free, variable not initialized: " + name)
+		return
+	}
+	delete(ds.funcs, name)
+}
+
 func GetType(val VariableType) string {
 	res := "Invalid Type"
 	switch val {
@@ -479,8 +501,13 @@ func GetType(val VariableType) string {
 func GetValue(ds *dataStore, val string) variable {
 	if v, ok := ds.vars[val]; ok {
 		return v[len(v)-1]
+	} else if v, ok := ds.funcs[val]; ok {
+		f := v[len(v)-1]
+		res := GetVariableInfo("", "\"("+f.params.value+" ("+f.body+"))\"")
+		return res
 	}
-	return GetVariableInfo("", val)
+	res := GetVariableInfo("", val)
+	return res
 }
 
 func GetValueType(ds *dataStore, val string) string {
@@ -567,7 +594,22 @@ func LoopFromTo(ds *dataStore, scopes int, start string, max string, indexIterat
 	startNum := int(GetFloat64FromString(ds, start))
 	maxNum := int(GetFloat64FromString(ds, max))
 	made := false
-	for i := startNum; i < maxNum; i++ {
+	i := startNum
+	next := func() {
+		if startNum <= maxNum {
+			i++
+		} else {
+			i--
+		}
+	}
+	comp := func() bool {
+		if startNum <= maxNum {
+			return i < maxNum
+		} else {
+			return i > maxNum
+		}
+	}
+	for ; comp(); next() {
 		if !made {
 			MakeVar(ds, scopes+1, indexIterator, fmt.Sprint(i))
 		} else {
@@ -762,4 +804,62 @@ func Not(ds *dataStore, val string) bool {
 		return !v
 	}
 	return true
+}
+
+func GetFunctionBody(params ...string) (string, int) {
+	for i, v := range params {
+		if strings.Index(v, "(") == 0 {
+			return v, i + 1
+		}
+	}
+	return "", -1
+}
+
+func MakeFunction(ds *dataStore, scopes int, params ...string) {
+	var f function
+	body, index := GetFunctionBody(params[1:]...)
+	f.body = body
+	f.name = params[0]
+	paramList := GetVariableInfo("", "["+strings.Join(params[1:index], " ")+"]")
+	f.params = paramList
+
+	if scopes < len(ds.scopedFuncs) && StrArrIncludes(ds.scopedFuncs[scopes], f.name) {
+		log.Fatal("Function already initialized: " + f.name)
+		return
+	}
+
+	if StrArrIncludes(reserved, f.name) {
+		log.Fatal("Function name \"" + f.name + "\" is reserved")
+		return
+	}
+
+	_, err := fastfloat.Parse(f.name)
+	if err == nil {
+		log.Fatal("Function named " + f.name + " cannot be a number")
+		return
+	}
+
+	ds.funcs[f.name] = append(ds.funcs[f.name], f)
+	for len(ds.scopedFuncs) < scopes {
+		ds.scopedFuncs = append(ds.scopedFuncs, []string{})
+	}
+	for len(ds.scopedRedefFuncs) < scopes {
+		ds.scopedRedefFuncs = append(ds.scopedRedefFuncs, []string{})
+	}
+	if _, ok := ds.funcs[f.name]; ok {
+		ds.scopedRedefFuncs[scopes-1] = append(ds.scopedRedefFuncs[scopes-1], f.name)
+	} else {
+		ds.scopedFuncs[scopes-1] = append(ds.scopedFuncs[scopes-1], f.name)
+	}
+}
+
+func CallFunc(ds *dataStore, scopes int, params ...string) {
+	name := params[0]
+	inputs := params[1:]
+	f := ds.funcs[name][len(ds.funcs[name])-1]
+	funcParams := SplitList(f.params.value)
+	for i, v := range funcParams {
+		MakeVar(ds, scopes, v, inputs[i])
+	}
+	Eval(ds, f.body, scopes, false)
 }

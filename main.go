@@ -30,10 +30,19 @@ type variable struct {
 	value        string
 }
 
+type function struct {
+	name   string
+	body   string
+	params variable
+}
+
 type dataStore struct {
-	vars        map[string][]variable
-	scopedVars  [][]string
-	scopedRedef [][]string
+	vars             map[string][]variable
+	scopedVars       [][]string
+	scopedRedef      [][]string
+	funcs            map[string][]function
+	scopedFuncs      [][]string
+	scopedRedefFuncs [][]string
 }
 
 func check(e error) {
@@ -70,12 +79,14 @@ func GetVariableInfo(name string, val string) variable {
 		variable.variableType = Bool
 	} else {
 		num, err := fastfloat.Parse(val)
-		if err != nil {
+		if err == nil {
 			if math.Floor(num) != num {
 				variable.variableType = Float
 			} else {
 				variable.variableType = Int
 			}
+		} else {
+			log.Fatal("Unknown value: ", val)
 		}
 	}
 	variable.value = val
@@ -164,17 +175,30 @@ func GetBlocks(code string) []string {
 
 func RemoveScopedVars(ds *dataStore, keepScopes int) {
 	for keepScopes < len(ds.scopedVars) {
-		arrToFree := ds.scopedVars[len(ds.scopedVars)-1]
-		scopesToPop := ds.scopedRedef[len(ds.scopedRedef)-1]
-		for _, v := range scopesToPop {
+		varArrToFree := ds.scopedVars[len(ds.scopedVars)-1]
+		varScopesToPop := ds.scopedRedef[len(ds.scopedRedef)-1]
+		for _, v := range varScopesToPop {
 			if len(ds.vars[v]) > 0 {
 				ds.vars[v] = ds.vars[v][:len(ds.vars[v])-1]
 			}
 		}
-		for _, v := range arrToFree {
+		for _, v := range varArrToFree {
 			FreeVar(ds, v)
 		}
 		ds.scopedVars = ds.scopedVars[:len(ds.scopedVars)-1]
+	}
+	for keepScopes < len(ds.scopedFuncs) {
+		funcArrToFree := ds.scopedFuncs[len(ds.scopedFuncs)-1]
+		funcScopesToPop := ds.scopedRedefFuncs[len(ds.scopedRedefFuncs)-1]
+		for _, v := range funcScopesToPop {
+			if len(ds.funcs[v]) > 0 {
+				ds.funcs[v] = ds.funcs[v][:len(ds.funcs[v])-1]
+			}
+		}
+		for _, v := range funcArrToFree {
+			FreeFunc(ds, v)
+		}
+		ds.scopedFuncs = ds.scopedFuncs[:len(ds.scopedFuncs)-1]
 	}
 }
 
@@ -194,7 +218,7 @@ func GetScopeEnd(block string) int {
 			return i
 		}
 	}
-	return len(block) - 1
+	return len(block)
 }
 
 func Flatten(ds *dataStore, block string) string {
@@ -212,8 +236,8 @@ func Flatten(ds *dataStore, block string) string {
 				starts = append(starts, i)
 			} else if res[i] == ')' {
 				hasCurrentFunc = false
-				if len(starts) > 0 {
-					slice := res[starts[len(starts)-1] : i+1]
+				slice := res[starts[len(starts)-1] : i+1]
+				if strings.Index(slice, "(body") != 0 {
 					hasReturn, val := Eval(ds, slice, len(starts)+1, false)
 					RemoveScopedVars(ds, len(starts)+1)
 					if hasReturn {
@@ -222,14 +246,16 @@ func Flatten(ds *dataStore, block string) string {
 						}
 						res = res[:starts[len(starts)-1]] + val + res[i+1:]
 						i -= len(slice) - len(val)
-						starts = starts[:len(starts)-1]
 					}
 				}
+				starts = starts[:len(starts)-1]
 			} else if res[i] == ' ' {
 				if !hasCurrentFunc {
 					hasCurrentFunc = true
 					if funcName == "body" {
 						i += GetScopeEnd(res[i:])
+						starts = starts[:len(starts)-1]
+						funcName = ""
 					}
 				}
 			} else if !hasCurrentFunc {
@@ -254,11 +280,26 @@ func StringToggle(str string, index int, inString bool) bool {
 	return inString
 }
 
+func GetArr(str string) (string, int) {
+	brackets := 0
+	for i, v := range str {
+		if v == '[' {
+			brackets++
+		} else if v == ']' {
+			brackets--
+		}
+
+		if brackets == 0 {
+			return str[:i+1], i + 1
+		}
+	}
+	return "", -1
+}
+
 func SplitParams(str string) []string {
 	res := []string{}
 	temp := []rune{}
 	inString := false
-	inArr := false
 	parens := 0
 	brackets := 0
 	hasFuncName := false
@@ -266,44 +307,32 @@ func SplitParams(str string) []string {
 	for i := 0; i < len(str); i++ {
 		inString = StringToggle(str, i, inString)
 		if !inString {
-			if inArr {
-				if str[i] == '[' {
-					brackets++
-				} else if str[i] == ']' {
-					brackets--
-				} else if str[i] == ' ' && temp[len(temp)-1] == ' ' {
-					continue
-				}
-				temp = append(temp, rune(str[i]))
-				if brackets == 0 {
-					inArr = false
-					temp = []rune("[" + strings.TrimSpace(string(temp[1:len(temp)-1])) + "]")
-				}
-			} else if str[i] == '(' {
+			if str[i] == '(' {
 				parens++
 				hasFuncName = false
 				funcName = ""
+				temp = append(temp, rune(str[i]))
 			} else if str[i] == ')' {
 				parens--
 				hasFuncName = false
 				funcName = ""
+				temp = append(temp, rune(str[i]))
 			} else if str[i] == '[' {
 				brackets++
-				inArr = true
-				temp = append(temp, rune(str[i]))
-			} else if str[i] == ']' {
-				inArr = false
-				temp = []rune(strings.TrimSpace(string(temp)))
-				temp = append(temp, rune(str[i]))
-				res = append(res, string(temp))
-				temp = []rune{}
+				if len(strings.TrimSpace(string(temp))) > 0 {
+					res = append(res, string(temp))
+					temp = []rune{}
+				}
+				arr, index := GetArr(str[i:])
+				i += index
+				res = append(res, arr)
 			} else if str[i] == ' ' {
 				if !hasFuncName {
 					hasFuncName = true
 					if funcName == "body" {
 						start := i
 						i += GetScopeEnd(str[start:])
-						res = append(res, str[start-4:i])
+						res = append(res, str[start+1:i])
 						temp = []rune{}
 					}
 				}
@@ -406,8 +435,11 @@ func main() {
 	benchmark := false
 	ds := new(dataStore)
 	ds.vars = make(map[string][]variable)
+	ds.funcs = make(map[string][]function)
 	ds.scopedVars = [][]string{}
 	ds.scopedRedef = [][]string{}
+	ds.scopedFuncs = [][]string{}
+	ds.scopedRedefFuncs = [][]string{}
 	if len(args) > 0 {
 		fileName = args[0]
 		if !strings.Contains(fileName, ".blisp") {
@@ -430,7 +462,10 @@ func main() {
 			if scanner.Scan() {
 				line = scanner.Text()
 			}
-			Eval(ds, line, 0, true)
+			hasReturn, val := Eval(ds, line, 0, true)
+			if hasReturn {
+				fmt.Println(val)
+			}
 		}
 	}
 	fmt.Println("Running [" + fileName + "]")

@@ -1,3 +1,2 @@
-(var h [1 2 3])
-(set h 1 "epic")
-(print h)
+(func n h (body (print h)))
+(n 2)

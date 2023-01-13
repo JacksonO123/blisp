@@ -608,7 +608,7 @@ func CallFunc(ds *dataStore, scopes int, params ...string) {
 	f := ds.funcs[name][len(ds.funcs[name])-1]
 	funcParams := SplitList(f.params.value)
 	for i, v := range funcParams {
-		MakeVar(ds, scopes, v, inputs[i])
+		MakeVar(ds, scopes, v, GetValue(ds, inputs[i]).value)
 	}
 	Eval(ds, f.body, scopes, false)
 }

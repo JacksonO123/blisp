@@ -1,5 +1,3 @@
-(loop 10 5 i (body
-	(if (eq (% i 2) 0) (body
-		(print i)
-	))
-))
+(func is-even n (body (if (eq (% n 2) 0) (body (print n "is even")))))
+
+(is-even 2)

@@ -43,6 +43,7 @@ type dataStore struct {
 	funcs            map[string][]function
 	scopedFuncs      [][]string
 	scopedRedefFuncs [][]string
+	builtins         map[string]func(*dataStore, int, string, []string) (bool, string)
 }
 
 func check(e error) {
@@ -440,6 +441,8 @@ func main() {
 	ds.scopedRedef = [][]string{}
 	ds.scopedFuncs = [][]string{}
 	ds.scopedRedefFuncs = [][]string{}
+	ds.builtins = make(map[string]func(*dataStore, int, string, []string) (bool, string))
+	InitBuiltins(ds)
 	if len(args) > 0 {
 		fileName = args[0]
 		if !strings.Contains(fileName, ".blisp") {

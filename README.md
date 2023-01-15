@@ -6,4 +6,4 @@ To run blisp
 ./run.sh [FILENAME]
 ```
 
-`[FILENAME]` is optional and is defaulted to `main.blisp`
+Not including [FILENAME] will start a repl

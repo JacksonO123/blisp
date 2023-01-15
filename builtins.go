@@ -82,7 +82,7 @@ func InitBuiltins(ds *dataStore) {
 		if len(params) != 1 {
 			log.Fatal("Invalid number of parameters to \"type\". Expected 1 found ", len(params))
 		}
-		return true, "\"" + GetValueType(ds, params[0]) + "\""
+		return true, string("\"" + GetValue(ds, params[0]).variableType + "\"")
 	}
 	ds.builtins["get"] = func(ds *dataStore, scopes int, flatBlock string, params []string) (bool, string) {
 		if len(params) != 2 {

@@ -14,14 +14,14 @@ import (
 	"github.com/valyala/fastjson/fastfloat"
 )
 
-type VariableType int
+type VariableType string
 
 const (
-	Int VariableType = iota
-	String
-	Float
-	Bool
-	List
+	Int    VariableType = "Int"
+	String VariableType = "String"
+	Float  VariableType = "Float"
+	Bool   VariableType = "Bool"
+	List   VariableType = "List"
 )
 
 type variable struct {
@@ -54,10 +54,12 @@ func check(e error) {
 	}
 }
 
-func StrArrIncludes(arr []string, val string) bool {
+func StrArrIncludes(arr []string, val ...string) bool {
 	for _, v := range arr {
-		if v == val {
-			return true
+		for _, check := range val {
+			if check == v {
+				return true
+			}
 		}
 	}
 	return false
@@ -309,6 +311,19 @@ func GetArr(str string) (string, int) {
 	return "", -1
 }
 
+func GetStrSlice(str string) (string, int) {
+	res := []rune{}
+	for i, v := range str {
+		res = append(res, v)
+		if i > 0 {
+			if v == '"' && str[i-1] != '\\' {
+				return string(res), i
+			}
+		}
+	}
+	return "", -1
+}
+
 func SplitParams(str string) []string {
 	res := []string{}
 	temp := []rune{}
@@ -500,7 +515,8 @@ func main() {
 	}
 	check(err)
 	start := time.Now()
-	Eval(ds, string(dat), 0, true)
+	fmt.Println(Tokenize(string(dat)))
+	// Eval(ds, string(dat), 0, true)
 	if benchmark {
 		fmt.Println("\nFinished in", time.Since(start))
 	}

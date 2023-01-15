@@ -1,5 +1,1 @@
-(var list [1 2 3 4 5])
-(loop (len list) 0 i (body
-	(set list (- (len list) i) i)
-))
-(print list)
+(print (type 2))

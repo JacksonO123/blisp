@@ -303,7 +303,12 @@ func LoopListIterator(ds *dataStore, scopes int, list string, iteratorName strin
 		} else {
 			SetVar(ds, iteratorName, v)
 		}
-		Eval(ds, body, scopes, false)
+		hasReturn, val := Eval(ds, body, scopes, false)
+		if hasReturn {
+			if val == "(break)" {
+				break
+			}
+		}
 	}
 }
 
@@ -319,7 +324,12 @@ func LoopListIndexIterator(ds *dataStore, scopes int, list string, indexIterator
 			SetVar(ds, iteratorName, v)
 			SetVar(ds, indexIterator, fmt.Sprint(i))
 		}
-		Eval(ds, body, scopes, false)
+		hasReturn, val := Eval(ds, body, scopes, false)
+		if hasReturn {
+			if val == "(break)" {
+				break
+			}
+		}
 	}
 }
 
@@ -366,7 +376,12 @@ func LoopFromTo(ds *dataStore, scopes int, start string, max string, indexIterat
 		} else {
 			SetVar(ds, indexIterator, fmt.Sprint(i))
 		}
-		Eval(ds, body, scopes, false)
+		hasReturn, val := Eval(ds, body, scopes, false)
+		if hasReturn {
+			if val == "(break)" {
+				break
+			}
+		}
 	}
 }
 

@@ -1,1 +1,1 @@
-(print (type 2))
+(print (if true (body 2)))

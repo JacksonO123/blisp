@@ -1,6 +1,10 @@
 package main
 
-import "fmt"
+import (
+	"strings"
+
+	"github.com/valyala/fastjson/fastfloat"
+)
 
 type TokenType string
 
@@ -10,6 +14,9 @@ const (
 	CloseParen  TokenType = "CloseParen"
 	ListToken   TokenType = "ListToken"
 	StringToken TokenType = "StringToken"
+	BoolToken   TokenType = "BoolToken"
+	NumberToken TokenType = "NumberToken"
+	UnTokenized TokenType = "UnTokenized"
 )
 
 type token struct {
@@ -48,6 +55,28 @@ func InitTokenMap(tm map[rune]func(*[]token, string, *int)) {
 	}
 }
 
+func GetToken(val string) token {
+	var t token
+	if len(val) == 0 {
+		t.tokenType = Identifier
+	} else if strings.Index(val, "\"") == 0 {
+		t.tokenType = StringToken
+	} else if strings.Index(val, "[") == 0 {
+		t.tokenType = ListToken
+	} else if val == "true" || val == "false" {
+		t.tokenType = BoolToken
+	} else {
+		_, err := fastfloat.Parse(val)
+		if err == nil {
+			t.tokenType = NumberToken
+		} else {
+			t.tokenType = Identifier
+		}
+	}
+	t.value = val
+	return t
+}
+
 func Tokenize(code string) []token {
 	res := []token{}
 	temp := []rune{}
@@ -56,17 +85,13 @@ func Tokenize(code string) []token {
 	for i := 0; i < len(code); i++ {
 		if val, ok := tokenMap[rune(code[i])]; ok {
 			if len(temp) > 0 {
-				var t token
-				t.tokenType = Identifier
-				t.value = string(temp)
+				t := GetToken(string(temp))
 				res = append(res, t)
 				temp = []rune{}
 			}
 			val(&res, code[i:], &i)
 		} else if code[i] == ' ' {
-			var t token
-			t.tokenType = Identifier
-			t.value = string(temp)
+			t := GetToken(string(temp))
 			res = append(res, t)
 			temp = []rune{}
 		} else {
@@ -75,14 +100,6 @@ func Tokenize(code string) []token {
 				temp = append(temp, rune(code[i]))
 			}
 		}
-	}
-	for i, v := range res {
-		if i > 0 {
-			if res[i-1].tokenType == Identifier {
-				fmt.Print(" ")
-			}
-		}
-		fmt.Print(v.value)
 	}
 	return res
 }

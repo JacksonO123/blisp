@@ -32,7 +32,7 @@ type variable struct {
 
 type function struct {
 	name   string
-	body   string
+	body   token
 	params variable
 }
 
@@ -43,7 +43,7 @@ type dataStore struct {
 	funcs            map[string][]function
 	scopedFuncs      [][]string
 	scopedRedefFuncs [][]string
-	builtins         map[string]func(*dataStore, int, string, []string) (bool, string)
+	builtins         map[string]func(*dataStore, int, []token) (bool, []token)
 	inFunc           bool
 	inLoop           bool
 }
@@ -73,17 +73,25 @@ func StringArrMap(arr []string, f func(string) string) []string {
 	return newArr
 }
 
-func GetVariableInfo(name string, val string) variable {
+func TokensToValue(tokens []token) []string {
+	res := []string{}
+	for _, v := range tokens {
+		res = append(res, v.value)
+	}
+	return res
+}
+
+func GetVariableInfo(name string, val token) variable {
 	var variable variable
 	variable.name = name
-	if strings.Index(val, "\"") == 0 {
+	if val.tokenType == StringToken {
 		variable.variableType = String
-	} else if strings.Index(val, "[") == 0 {
+	} else if val.tokenType == ListToken {
 		variable.variableType = List
-	} else if val == "true" || val == "false" {
+	} else if val.tokenType == BoolToken {
 		variable.variableType = Bool
 	} else {
-		num, err := fastfloat.Parse(val)
+		num, err := fastfloat.Parse(val.value)
 		if err == nil {
 			if math.Floor(num) != num {
 				variable.variableType = Float
@@ -91,88 +99,33 @@ func GetVariableInfo(name string, val string) variable {
 				variable.variableType = Int
 			}
 		} else {
-			log.Fatal("Unknown value: ", val)
+			log.Fatal("Unknown value: ", val.value)
 		}
 	}
-	variable.value = val
+	variable.value = val.value
 	return variable
 }
 
+// fix this
 func SplitList(list string) []string {
 	res := []string{}
-	temp := []rune{}
-	newList := list[1 : len(list)-1]
-	inString := false
-	nestedLists := 0
-	for i, v := range newList {
-		inString = StringToggle(newList, i, inString)
-		if !inString {
-			if v == ' ' {
-				if nestedLists == 0 {
-					res = append(res, string(temp))
-					temp = []rune{}
-				} else {
-					temp = append(temp, v)
-				}
-			} else {
-				temp = append(temp, v)
-				if v == '[' {
-					nestedLists++
-				} else if v == ']' {
-					nestedLists--
-				}
-			}
-		} else {
-			temp = append(temp, v)
-		}
-	}
-	if len(temp) > 0 {
-		res = append(res, string(temp))
-	}
 	return res
 }
 
-func GetBlocks(code string) []string {
-	temp := []rune{}
-	var blocks []string
-	inString := false
+func GetBlocks(code []token) [][]token {
+	temp := []token{}
+	var blocks [][]token
 	parenScopes := 0
-	for i, c := range code {
-		if c == '"' {
-			if i > 0 {
-				if code[i-1] != '\\' {
-					inString = !inString
-				}
-			} else {
-				inString = !inString
-			}
-			temp = append(temp, c)
-			continue
-		} else if c == '\t' {
-			if len(temp) > 0 && temp[len(temp)-1] != ' ' && temp[len(temp)-1] != ')' {
-				temp = append(temp, ' ')
-			}
-			continue
-		} else if !inString {
-			if c == '(' {
-				parenScopes++
-			} else if c == ')' {
-				parenScopes--
-			} else if c == '\n' {
-				continue
-			}
+	for _, c := range code {
+		if c.tokenType == OpenParen {
+			parenScopes++
+		} else if c.tokenType == CloseParen {
+			parenScopes--
 		}
-		if parenScopes > 0 {
-			if c == ' ' && len(temp) > 0 && temp[len(temp)-1] != ' ' {
-				temp = append(temp, c)
-			} else if c != ' ' {
-				temp = append(temp, c)
-			}
-		} else if parenScopes == 0 && len(temp) > 0 {
-			temp = append(temp, ')')
-			temp = []rune(string(temp))
-			blocks = append(blocks, string(temp))
-			temp = []rune{}
+		temp = append(temp, c)
+		if parenScopes == 0 && len(temp) > 0 {
+			blocks = append(blocks, temp)
+			temp = []token{}
 		}
 	}
 	return blocks
@@ -188,7 +141,8 @@ func RemoveScopedVars(ds *dataStore, keepScopes int) {
 			}
 		}
 		for _, v := range varArrToFree {
-			FreeVar(ds, v)
+			t := GetToken(v)
+			FreeVar(ds, t)
 		}
 		ds.scopedVars = ds.scopedVars[:len(ds.scopedVars)-1]
 	}
@@ -207,17 +161,13 @@ func RemoveScopedVars(ds *dataStore, keepScopes int) {
 	}
 }
 
-func GetScopeEnd(block string) int {
+func GetScopeEnd(block []token) int {
 	scopes := 1
-	inString := false
 	for i, v := range block {
-		inString = StringToggle(block, i, inString)
-		if !inString {
-			if v == '(' {
-				scopes++
-			} else if v == ')' {
-				scopes--
-			}
+		if v.tokenType == OpenParen {
+			scopes++
+		} else if v.tokenType == CloseParen {
+			scopes--
 		}
 		if scopes == 0 {
 			return i
@@ -226,73 +176,77 @@ func GetScopeEnd(block string) int {
 	return len(block)
 }
 
-func Flatten(ds *dataStore, block string) string {
-	res := block[1 : len(block)-1]
-	inString := false
-	starts := []int{}
-	funcName := ""
-	hasCurrentFunc := false
-	for i := 0; i < len(res); i++ {
-		inString = StringToggle(res, i, inString)
-		if !inString {
-			if res[i] == '(' {
-				hasCurrentFunc = false
-				funcName = ""
-				starts = append(starts, i)
-			} else if res[i] == ')' {
-				hasCurrentFunc = false
-				slice := res[starts[len(starts)-1] : i+1]
-				if strings.Index(slice, "(body") != 0 {
-					hasReturn, val := Eval(ds, slice, len(starts)+1, false)
-					RemoveScopedVars(ds, len(starts)+1)
-					if hasReturn {
-						if val == "(break)" {
-							if ds.inLoop {
-								return "break"
-							} else {
-								log.Fatal("Not in loop, cannot break")
-							}
-						} else if strings.Index(val, "(return") == 0 {
-							if ds.inFunc {
-								return val
-							} else {
-								log.Fatal("Not in func, cannot return")
-							}
-						}
-						res = res[:starts[len(starts)-1]] + val + res[i+1:]
-						i -= len(slice) - len(val)
-					}
-				}
-				starts = starts[:len(starts)-1]
-			} else if res[i] == ' ' {
-				if !hasCurrentFunc {
-					hasCurrentFunc = true
-					if funcName == "body" {
-						i += GetScopeEnd(res[i:])
-						starts = starts[:len(starts)-1]
-						funcName = ""
-					}
-				}
-			} else if !hasCurrentFunc {
-				funcName += string(res[i])
+func JoinTokens(tokens []token) string {
+	res := ""
+	for i, v := range tokens {
+		if len(res) > 0 {
+			if tokens[i-1].tokenType == Identifier {
+				res += " " + v.value
+			} else {
+				res += v.value
 			}
+		} else {
+			res += v.value
 		}
 	}
-	res = FixQuoteLiterals(res)
 	return res
 }
 
-func StringToggle(str string, index int, inString bool) bool {
-	if str[index] == '"' {
-		if index > 0 {
-			if str[index-1] != '\\' {
-				return !inString
+func Flatten(ds *dataStore, block []token) []token {
+	res := block[1 : len(block)-1]
+	starts := []int{}
+	for i := 0; i < len(res); i++ {
+		if res[i].tokenType == OpenParen {
+			starts = append(starts, i)
+		} else if res[i].tokenType == CloseParen {
+			slice := res[starts[len(starts)-1] : i+1]
+			hasReturn, val := Eval(ds, slice, len(starts)+1, false)
+			RemoveScopedVars(ds, len(starts)+1)
+			if hasReturn {
+				if JoinTokens(val) == "(break)" {
+					if ds.inLoop {
+						return []token{GetToken("break")}
+					} else {
+						log.Fatal("Not in loop, cannot break")
+					}
+				} else if len(val) > 1 {
+					if val[1].value == "return" {
+						if ds.inFunc {
+							return val
+						} else {
+							log.Fatal("Not in func, cannot return")
+						}
+					}
+				}
+				start := res[:starts[len(starts)-1]]
+				end := res[i+1:]
+				tempRes := append(start, val...)
+				tempRes = append(tempRes, end...)
+				res = tempRes
+				i -= len(slice) - len(val)
 			}
-		} else {
-			return !inString
+			starts = starts[:len(starts)-1]
+		} else if res[i].tokenType == Identifier {
+			if i > 0 && res[i-1].tokenType == OpenParen && res[i].value == "body" {
+				bodyStart := i - 1
+				i += GetScopeEnd(res[i:]) + 1
+				body := res[bodyStart:i]
+				var t token
+				t.tokenType = UnTokenized
+				t.value = JoinTokens(body)
+
+				start := res[:starts[len(starts)-1]]
+				end := res[i:]
+				tempRes := append(start, t)
+				tempRes = append(tempRes, end...)
+				res = tempRes
+
+				starts = starts[:len(starts)-1]
+			}
 		}
 	}
-	return inString
+
+	return res
 }
 
 func GetArr(str string) (string, int) {
@@ -324,66 +278,6 @@ func GetStrSlice(str string) (string, int) {
 	return "", -1
 }
 
-func SplitParams(str string) []string {
-	res := []string{}
-	temp := []rune{}
-	inString := false
-	parens := 0
-	brackets := 0
-	hasFuncName := false
-	funcName := ""
-	for i := 0; i < len(str); i++ {
-		inString = StringToggle(str, i, inString)
-		if !inString {
-			if str[i] == '(' {
-				parens++
-				hasFuncName = false
-				funcName = ""
-				temp = append(temp, rune(str[i]))
-			} else if str[i] == ')' {
-				parens--
-				hasFuncName = false
-				funcName = ""
-				temp = append(temp, rune(str[i]))
-			} else if str[i] == '[' {
-				brackets++
-				if len(strings.TrimSpace(string(temp))) > 0 {
-					res = append(res, string(temp))
-					temp = []rune{}
-				}
-				arr, index := GetArr(str[i:])
-				i += index
-				res = append(res, arr)
-			} else if str[i] == ' ' {
-				if !hasFuncName {
-					hasFuncName = true
-					if funcName == "body" {
-						start := i
-						i += GetScopeEnd(str[start:])
-						res = append(res, str[start+1:i])
-						temp = []rune{}
-					}
-				}
-				if len(temp) > 0 {
-					res = append(res, string(temp))
-				}
-				temp = []rune{}
-			} else {
-				temp = append(temp, rune(str[i]))
-				if !hasFuncName {
-					funcName += string(str[i])
-				}
-			}
-		} else {
-			temp = append(temp, rune(str[i]))
-		}
-	}
-	if len(temp) > 0 {
-		res = append(res, string(temp))
-	}
-	return res
-}
-
 func QuoteLiteralToQuote(str string) string {
 	return strings.Replace(str, "\\\"", "\"", -1)
 }
@@ -405,53 +299,29 @@ func QuoteToQuoteLiteral(str string) string {
 	return res
 }
 
-func FixQuoteLiterals(str string) string {
-	temp := str
-	startLen := len(temp)
-	diff := startLen - len(strings.ReplaceAll(temp, "\"", ""))
-	res := str
-	quoteNum := 0
-	for i := 0; i < len(res); i++ {
-		if res[i] == '"' {
-			quoteNum++
-			if i > 0 {
-				if res[i-1] == '\\' {
-					if quoteNum == 1 || quoteNum == diff {
-						res = res[:i-1] + res[i:]
-					}
-					continue
-				}
-			}
-		}
-	}
-	return res
-}
-
-func Eval(ds *dataStore, code string, scopes int, root bool) (bool, string) {
+func Eval(ds *dataStore, code []token, scopes int, root bool) (bool, []token) {
 	blocks := GetBlocks(code)
 	hasReturn := true
-	toReturn := ""
-	if len(blocks) != 1 {
+	toReturn := []token{}
+	if len(blocks) > 1 {
 		hasReturn = false
 		for _, block := range blocks {
-			blockReturn, blockVal := Eval(ds, FixQuoteLiterals(block), scopes+1, false)
+			blockReturn, blockVal := Eval(ds, block, scopes+1, false)
 			if blockReturn {
-				if blockVal == "(break)" {
+				if JoinTokens(blockVal) == "(break)" {
 					hasReturn = true
-					toReturn = "(break)"
+					toReturn = blockVal
 					break
 				}
 			}
 			RemoveScopedVars(ds, scopes+1)
 		}
 	} else {
-		blocks[0] = FixQuoteLiterals(blocks[0])
-		flatBlock := Flatten(ds, blocks[0])
-		parts := SplitParams(flatBlock)
+		parts := Flatten(ds, blocks[0])
 		if root {
 			scopes++
 		}
-		hasReturn, toReturn = HandleFunc(ds, scopes, flatBlock, parts...)
+		hasReturn, toReturn = HandleFunc(ds, scopes, parts...)
 	}
 	return hasReturn, toReturn
 }
@@ -468,7 +338,7 @@ func main() {
 	ds.scopedRedef = [][]string{}
 	ds.scopedFuncs = [][]string{}
 	ds.scopedRedefFuncs = [][]string{}
-	ds.builtins = make(map[string]func(*dataStore, int, string, []string) (bool, string))
+	ds.builtins = make(map[string]func(*dataStore, int, []token) (bool, []token))
 	ds.inFunc = false
 	ds.inLoop = false
 	InitBuiltins(ds)
@@ -494,7 +364,7 @@ func main() {
 			if scanner.Scan() {
 				line = scanner.Text()
 			}
-			hasReturn, val := Eval(ds, line, 0, true)
+			hasReturn, val := Eval(ds, Tokenize(line), 0, true)
 			if hasReturn {
 				fmt.Println(val)
 			}
@@ -515,8 +385,7 @@ func main() {
 	}
 	check(err)
 	start := time.Now()
-	fmt.Println(Tokenize(string(dat)))
-	// Eval(ds, string(dat), 0, true)
+	Eval(ds, Tokenize(string(dat)), 0, true)
 	if benchmark {
 		fmt.Println("\nFinished in", time.Since(start))
 	}

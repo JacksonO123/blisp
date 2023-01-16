@@ -45,19 +45,21 @@ var reserved []string = []string{
 	"return",
 }
 
-func HandleFunc(ds *dataStore, scopes int, flatBlock string, parts ...string) (bool, string) {
+func HandleFunc(ds *dataStore, scopes int, parts ...token) (bool, []token) {
+	fmt.Println("parts:", strings.Join(TokensToValue(parts), " "))
 	params := parts[1:]
 	hasReturn := true
-	toReturn := ""
-	if val, ok := ds.builtins[parts[0]]; ok {
-		hasReturn, toReturn = val(ds, scopes, flatBlock, params)
+	toReturn := []token{}
+	fmt.Println("parts:", parts)
+	if val, ok := ds.builtins[parts[0].value]; ok {
+		hasReturn, toReturn = val(ds, scopes, params)
 	} else {
 		hasReturn = false
-		if _, ok := ds.funcs[parts[0]]; ok {
+		if _, ok := ds.funcs[parts[0].value]; ok {
 			ds.inFunc = true
 			return CallFunc(ds, scopes+1, parts...)
 		} else {
-			fmt.Println("default", "["+strings.Join(parts, ", ")+"]")
+			fmt.Println("default", "["+strings.Join(TokensToValue(parts), ", ")+"]")
 		}
 	}
 	return hasReturn, toReturn
@@ -70,28 +72,27 @@ func FormatPrint(str string) string {
 	return QuoteLiteralToQuote(str)
 }
 
-func Print(ds *dataStore, params ...string) {
+func Print(ds *dataStore, params ...token) {
 	res := []string{}
 	for _, v := range params {
-		if strings.Contains(v, "\"") {
-			res = append(res, v)
+		if v.tokenType == StringToken {
+			res = append(res, v.value)
 			continue
 		}
-		_, err := fastfloat.Parse(v)
-		if err == nil {
-			res = append(res, v)
-		} else {
-			info := GetValue(ds, v)
-			res = append(res, info.value)
-		}
+
+		info := GetValue(ds, v)
+		res = append(res, info.value)
 	}
 	fmt.Println(FormatPrint(strings.Join(res, ", ")))
 }
 
-func GetFloat64FromString(ds *dataStore, str string) float64 {
-	n, err := fastfloat.Parse(str)
+func GetFloat64FromToken(ds *dataStore, tk token) float64 {
+	if tk.tokenType != NumberToken {
+		log.Fatal(tk.value, " is not a number")
+	}
+	n, err := fastfloat.Parse(tk.value)
 	if err != nil {
-		if val, ok := ds.vars[str]; ok {
+		if val, ok := ds.vars[tk.value]; ok {
 			if val[len(val)-1].variableType == Int || val[len(val)-1].variableType == Float {
 				n, _ = fastfloat.Parse(val[len(val)-1].value)
 			} else {
@@ -102,17 +103,17 @@ func GetFloat64FromString(ds *dataStore, str string) float64 {
 	return n
 }
 
-func GetFloat64FromStrings(ds *dataStore, strs ...string) []float64 {
+func GetFloat64FromTokens(ds *dataStore, tokens ...token) []float64 {
 	var nums []float64
-	for _, v := range strs {
-		n := GetFloat64FromString(ds, v)
+	for _, v := range tokens {
+		n := GetFloat64FromToken(ds, v)
 		nums = append(nums, n)
 	}
 	return nums
 }
 
-func Add(ds *dataStore, params ...string) float64 {
-	nums := GetFloat64FromStrings(ds, params...)
+func Add(ds *dataStore, params ...token) float64 {
+	nums := GetFloat64FromTokens(ds, params...)
 	var res float64 = 0
 	for _, v := range nums {
 		res += v
@@ -120,8 +121,8 @@ func Add(ds *dataStore, params ...string) float64 {
 	return res
 }
 
-func Sub(ds *dataStore, params ...string) float64 {
-	nums := GetFloat64FromStrings(ds, params...)
+func Sub(ds *dataStore, params ...token) float64 {
+	nums := GetFloat64FromTokens(ds, params...)
 	var res float64 = nums[0]
 	if len(params) == 1 {
 		res *= -1
@@ -133,8 +134,8 @@ func Sub(ds *dataStore, params ...string) float64 {
 	return res
 }
 
-func Mult(ds *dataStore, params ...string) float64 {
-	nums := GetFloat64FromStrings(ds, params...)
+func Mult(ds *dataStore, params ...token) float64 {
+	nums := GetFloat64FromTokens(ds, params...)
 	var res float64 = nums[0]
 	for _, v := range nums[1:] {
 		res *= v
@@ -142,8 +143,8 @@ func Mult(ds *dataStore, params ...string) float64 {
 	return res
 }
 
-func Divide(ds *dataStore, params ...string) float64 {
-	nums := GetFloat64FromStrings(ds, params...)
+func Divide(ds *dataStore, params ...token) float64 {
+	nums := GetFloat64FromTokens(ds, params...)
 	var res float64 = nums[0]
 	for _, v := range nums[1:] {
 		res /= v
@@ -151,77 +152,72 @@ func Divide(ds *dataStore, params ...string) float64 {
 	return res
 }
 
-func Exp(ds *dataStore, base string, exp string) float64 {
-	num1 := GetFloat64FromString(ds, base)
-	num2 := GetFloat64FromString(ds, exp)
+func Exp(ds *dataStore, base token, exp token) float64 {
+	num1 := GetFloat64FromToken(ds, base)
+	num2 := GetFloat64FromToken(ds, exp)
 	return math.Pow(num1, num2)
 }
 
-func Mod(ds *dataStore, num1 string, num2 string) int {
-	val1 := GetFloat64FromString(ds, num1)
-	val2 := GetFloat64FromString(ds, num2)
-	val1Str := fmt.Sprint(val1)
-	val2Str := fmt.Sprint(val2)
-	v1 := GetVariableInfo("", val1Str)
-	v2 := GetVariableInfo("", val2Str)
-	if v1.variableType != Int {
-		log.Fatal(val1Str + " is not an int")
-	} else if v2.variableType != Int {
-		log.Fatal(val2Str + " is not an int")
+func Mod(ds *dataStore, num1 token, num2 token) int {
+	val1 := GetFloat64FromToken(ds, num1)
+	val2 := GetFloat64FromToken(ds, num2)
+	if math.Floor(val1) != val1 {
+		log.Fatal(val1, " is not an int")
+	} else if math.Floor(val2) != val2 {
+		log.Fatal(val2, " is not an int")
 	}
 	return int(val1) % int(val2)
 }
 
-func MakeVar(ds *dataStore, scopes int, name string, val string) {
-	if scopes < len(ds.scopedVars) && StrArrIncludes(ds.scopedVars[scopes], name) {
-		log.Fatal("Variable already initialized: " + name)
+func MakeVar(ds *dataStore, scopes int, name token, val token) {
+	if scopes < len(ds.scopedVars) && StrArrIncludes(ds.scopedVars[scopes], name.value) {
+		log.Fatal("Variable already initialized: ", name.value)
 		return
 	}
 
-	if StrArrIncludes(reserved, name) {
-		log.Fatal("Variable name \"" + name + "\" is reserved")
+	if StrArrIncludes(reserved, name.value) {
+		log.Fatal("Variable name \"", name.value, "\" is reserved")
 		return
 	}
 
-	if len(val) == 0 {
+	if len(val.value) == 0 {
 		log.Fatal("Variable must have name")
 		return
 	}
 
-	_, err := fastfloat.Parse(name)
-	if err == nil {
-		log.Fatal("Variable named " + name + " cannot be a number")
+	if name.tokenType == NumberToken {
+		log.Fatal("Variable named ", name.value, " cannot be a number")
 		return
 	}
 
-	ds.vars[name] = append(ds.vars[name], GetVariableInfo(name, val))
+	ds.vars[name.value] = append(ds.vars[name.value], GetVariableInfo(name.value, val))
 	for len(ds.scopedVars) < scopes {
 		ds.scopedVars = append(ds.scopedVars, []string{})
 	}
 	for len(ds.scopedRedef) < scopes {
 		ds.scopedRedef = append(ds.scopedRedef, []string{})
 	}
-	if _, ok := ds.vars[name]; ok {
-		ds.scopedRedef[scopes-1] = append(ds.scopedRedef[scopes-1], name)
+	if _, ok := ds.vars[name.value]; ok {
+		ds.scopedRedef[scopes-1] = append(ds.scopedRedef[scopes-1], name.value)
 	} else {
-		ds.scopedVars[scopes-1] = append(ds.scopedVars[scopes-1], name)
+		ds.scopedVars[scopes-1] = append(ds.scopedVars[scopes-1], name.value)
 	}
 }
 
-func SetVar(ds *dataStore, name string, val string) {
-	if _, ok := ds.vars[name]; !ok {
-		log.Fatal("Variable not initialized: " + name)
+func SetVar(ds *dataStore, name token, val token) {
+	if _, ok := ds.vars[name.value]; !ok {
+		log.Fatal("Variable not initialized: ", name.value)
 		return
 	}
-	ds.vars[name][len(ds.vars[name])-1] = GetValue(ds, val)
+	ds.vars[name.value][len(ds.vars[name.value])-1] = GetValue(ds, val)
 }
 
-func FreeVar(ds *dataStore, name string) {
-	if _, ok := ds.vars[name]; !ok {
-		log.Fatal("Unable to free, variable not initialized: " + name)
+func FreeVar(ds *dataStore, name token) {
+	if _, ok := ds.vars[name.value]; !ok {
+		log.Fatal("Unable to free, variable not initialized: ", name)
 		return
 	}
-	delete(ds.vars, name)
+	delete(ds.vars, name.value)
 }
 
 func FreeFunc(ds *dataStore, name string) {
@@ -249,111 +245,111 @@ func GetType(val VariableType) string {
 	return res
 }
 
-func GetValue(ds *dataStore, val string) variable {
-	if v, ok := ds.vars[val]; ok {
+func GetValue(ds *dataStore, val token) variable {
+	if v, ok := ds.vars[val.value]; ok {
 		return v[len(v)-1]
-	} else if v, ok := ds.funcs[val]; ok {
+	} else if v, ok := ds.funcs[val.value]; ok {
 		f := v[len(v)-1]
-		res := GetVariableInfo("", "\"("+f.params.value+" ("+f.body+"))\"")
+		res := GetVariableInfo("", GetToken("\"("+f.params.value+" ("+f.body.value+"))\""))
 		return res
 	}
 	res := GetVariableInfo("", val)
 	return res
 }
 
-func GetValueType(ds *dataStore, val string) string {
-	if v, ok := ds.vars[val]; ok {
+func GetValueType(ds *dataStore, val token) string {
+	if v, ok := ds.vars[val.value]; ok {
 		return GetType(v[len(v)-1].variableType)
 	}
 	tempVar := GetVariableInfo("", val)
 	return GetType(tempVar.variableType)
 }
 
-func GetValueFromList(ds *dataStore, list string, index string) string {
-	if v, ok := ds.vars[list]; ok {
+func GetValueFromList(ds *dataStore, list token, index token) token {
+	if v, ok := ds.vars[list.value]; ok {
 		parts := SplitList(v[len(v)-1].value)
 		intIndex, err := strconv.Atoi(GetValue(ds, index).value)
 		if err != nil {
 			log.Fatal(err)
 		}
-		return parts[intIndex]
+		return GetToken(parts[intIndex])
 	} else {
 		tempVar := GetVariableInfo("", list)
 		if tempVar.variableType != List {
-			log.Fatal("Error getting " + index + " from " + list + ", " + list + " is not a list")
+			log.Fatal("Error getting ", index.value, " from ", list.value, ", ", list.value, " is not a list")
 		} else {
 			parts := SplitList(tempVar.value)
-			intIndex, err := strconv.Atoi(index)
+			intIndex, err := strconv.Atoi(index.value)
 			if err != nil {
 				log.Fatal(err)
 			}
-			return parts[intIndex]
+			return GetToken(parts[intIndex])
 		}
 	}
-	return ""
+	return token{}
 }
 
-func LoopListIterator(ds *dataStore, scopes int, list string, iteratorName string, body string) {
+func LoopListIterator(ds *dataStore, scopes int, list token, iteratorName token, body []token) {
 	listVar := GetValue(ds, list)
 	parts := SplitList(listVar.value)
 	made := false
 	for _, v := range parts {
 		if !made {
-			MakeVar(ds, scopes+1, iteratorName, v)
+			MakeVar(ds, scopes+1, iteratorName, GetToken(v))
 		} else {
-			SetVar(ds, iteratorName, v)
+			SetVar(ds, iteratorName, GetToken(v))
 		}
 		hasReturn, val := Eval(ds, body, scopes, false)
 		if hasReturn {
-			if val == "(break)" {
+			if JoinTokens(val) == "(break)" {
 				break
 			}
 		}
 	}
 }
 
-func LoopListIndexIterator(ds *dataStore, scopes int, list string, indexIterator string, iteratorName string, body string) {
+func LoopListIndexIterator(ds *dataStore, scopes int, list token, indexIterator token, iteratorName token, body []token) {
 	listVar := GetValue(ds, list)
 	parts := SplitList(listVar.value)
 	made := false
 	for i, v := range parts {
 		if !made {
-			MakeVar(ds, scopes+1, iteratorName, v)
-			MakeVar(ds, scopes+1, indexIterator, fmt.Sprint(i))
+			MakeVar(ds, scopes+1, iteratorName, GetToken(v))
+			MakeVar(ds, scopes+1, indexIterator, GetToken(fmt.Sprint(i)))
 		} else {
-			SetVar(ds, iteratorName, v)
-			SetVar(ds, indexIterator, fmt.Sprint(i))
+			SetVar(ds, iteratorName, GetToken(v))
+			SetVar(ds, indexIterator, GetToken(fmt.Sprint(i)))
 		}
 		hasReturn, val := Eval(ds, body, scopes, false)
 		if hasReturn {
-			if val == "(break)" {
+			if JoinTokens(val) == "(break)" {
 				break
 			}
 		}
 	}
 }
 
-func LoopTo(ds *dataStore, scopes int, max string, indexIterator string, body string) {
-	maxNum := int(GetFloat64FromString(ds, max))
+func LoopTo(ds *dataStore, scopes int, max token, indexIterator token, body []token) {
+	maxNum := int(GetFloat64FromToken(ds, max))
 	made := false
 	for i := 0; i < maxNum; i++ {
 		if !made {
-			MakeVar(ds, scopes+1, indexIterator, fmt.Sprint(i))
+			MakeVar(ds, scopes+1, indexIterator, GetToken(fmt.Sprint(i)))
 		} else {
-			SetVar(ds, indexIterator, fmt.Sprint(i))
+			SetVar(ds, indexIterator, GetToken(fmt.Sprint(i)))
 		}
 		hasReturn, val := Eval(ds, body, scopes, false)
 		if hasReturn {
-			if val == "(break)" {
+			if JoinTokens(val) == "(break)" {
 				break
 			}
 		}
 	}
 }
 
-func LoopFromTo(ds *dataStore, scopes int, start string, max string, indexIterator string, body string) {
-	startNum := int(GetFloat64FromString(ds, start))
-	maxNum := int(GetFloat64FromString(ds, max))
+func LoopFromTo(ds *dataStore, scopes int, start token, max token, indexIterator token, body []token) {
+	startNum := int(GetFloat64FromToken(ds, start))
+	maxNum := int(GetFloat64FromToken(ds, max))
 	made := false
 	i := startNum
 	next := func() {
@@ -372,20 +368,20 @@ func LoopFromTo(ds *dataStore, scopes int, start string, max string, indexIterat
 	}
 	for ; comp(); next() {
 		if !made {
-			MakeVar(ds, scopes+1, indexIterator, fmt.Sprint(i))
+			MakeVar(ds, scopes+1, indexIterator, GetToken(fmt.Sprint(i)))
 		} else {
-			SetVar(ds, indexIterator, fmt.Sprint(i))
+			SetVar(ds, indexIterator, GetToken(fmt.Sprint(i)))
 		}
 		hasReturn, val := Eval(ds, body, scopes, false)
 		if hasReturn {
-			if val == "(break)" {
+			if JoinTokens(val) == "(break)" {
 				break
 			}
 		}
 	}
 }
 
-func Eq(ds *dataStore, params ...string) bool {
+func Eq(ds *dataStore, params ...token) bool {
 	eq := true
 	for i := 0; i < len(params)-1; i++ {
 		if GetValue(ds, params[i]).value != GetValue(ds, params[i+1]).value {
@@ -395,15 +391,15 @@ func Eq(ds *dataStore, params ...string) bool {
 	return eq
 }
 
-func If(ds *dataStore, scopes int, params ...string) (bool, string) {
+func If(ds *dataStore, scopes int, params ...token) (bool, []token) {
 	hasReturn := true
-	toReturn := ""
+	toReturn := []token{}
 	info := GetValue(ds, params[0])
 	if info.variableType == Bool {
 		if val, err := strconv.ParseBool(info.value); err == nil && val {
-			hasReturn, toReturn = Eval(ds, params[1], scopes, false)
+			hasReturn, toReturn = Eval(ds, Tokenize(params[1].value), scopes, false)
 		} else if len(params) == 3 {
-			hasReturn, toReturn = Eval(ds, params[2], scopes, false)
+			hasReturn, toReturn = Eval(ds, Tokenize(params[2].value), scopes, false)
 		}
 	} else {
 		log.Fatal("Error in \"if\", expected type: \"Bool\" found ", info.variableType)
@@ -428,7 +424,7 @@ func PrependToList(list string, toPrepend string) string {
 	return res
 }
 
-func ListFunc(ds *dataStore, f func(list string, val string) string, params ...string) string {
+func ListFunc(ds *dataStore, f func(list string, val string) string, params ...token) string {
 	info := GetValue(ds, params[0])
 	if info.variableType == List {
 		list := info.value
@@ -450,7 +446,7 @@ func ListFunc(ds *dataStore, f func(list string, val string) string, params ...s
 	return "[]"
 }
 
-func Concat(ds *dataStore, params ...string) string {
+func Concat(ds *dataStore, params ...token) string {
 	res := ""
 	for _, v := range params {
 		info := GetValue(ds, v)
@@ -463,7 +459,7 @@ func Concat(ds *dataStore, params ...string) string {
 	return res
 }
 
-func Pop(ds *dataStore, list string) string {
+func Pop(ds *dataStore, list token) token {
 	val := GetValue(ds, list)
 	if val.variableType != List {
 		log.Fatal("Error in \"pop\" expected \"List\" found ", val.variableType)
@@ -472,18 +468,18 @@ func Pop(ds *dataStore, list string) string {
 	if len(listItems) > 0 {
 		lastItem := listItems[len(listItems)-1]
 		listItems = listItems[:len(listItems)-1]
-		if _, ok := ds.vars[list]; ok {
-			SetVar(ds, list, strings.Join(listItems, " "))
+		if _, ok := ds.vars[list.value]; ok {
+			SetVar(ds, list, GetToken("["+strings.Join(listItems, " ")+"]"))
 		}
-		return lastItem
+		return GetToken(lastItem)
 	} else {
-		return ""
+		return GetToken("")
 	}
 }
 
-func Remove(ds *dataStore, list string, index string) string {
+func Remove(ds *dataStore, list token, index token) token {
 	val := GetValue(ds, list)
-	listIndex := int(GetFloat64FromString(ds, index))
+	listIndex := int(GetFloat64FromToken(ds, index))
 	if val.variableType != List {
 		log.Fatal("Error in \"remove\" expected \"List\" found ", val.variableType)
 	}
@@ -491,21 +487,21 @@ func Remove(ds *dataStore, list string, index string) string {
 	if len(listItems) > 0 {
 		item := listItems[listIndex]
 		listItems = append(listItems[:listIndex], listItems[listIndex+1:]...)
-		if _, ok := ds.vars[list]; ok {
-			SetVar(ds, list, strings.Join(listItems, " "))
+		if _, ok := ds.vars[list.value]; ok {
+			SetVar(ds, list, GetToken("["+strings.Join(listItems, " ")+"]"))
 		}
-		return item
+		return GetToken(item)
 	} else {
-		return ""
+		return GetToken("")
 	}
 }
 
-func Len(ds *dataStore, list string) int {
+func Len(ds *dataStore, list token) int {
 	parts := SplitList(GetValue(ds, list).value)
 	return len(parts)
 }
 
-func And(ds *dataStore, params ...string) bool {
+func And(ds *dataStore, params ...token) bool {
 	res := false
 	for i, v := range params {
 		info := GetValue(ds, v)
@@ -526,22 +522,25 @@ func And(ds *dataStore, params ...string) bool {
 	return res
 }
 
-func SetIndex(ds *dataStore, list string, index string, val string) string {
+func SetIndex(ds *dataStore, list token, index token, val token) token {
 	info := GetValue(ds, list)
 	if info.variableType != List {
 		log.Fatal("Error in \"set\", expected list found ", info.variableType)
 	}
 	parts := SplitList(info.value)
-	listIndex := int(GetFloat64FromString(ds, index))
+	listIndex := int(GetFloat64FromToken(ds, index))
 	parts[listIndex] = GetValue(ds, val).value
 	newList := "[" + strings.Join(parts, " ") + "]"
-	if _, ok := ds.vars[list]; ok {
-		SetVar(ds, list, newList)
+	var listToken token
+	listToken.tokenType = ListToken
+	listToken.value = newList
+	if _, ok := ds.vars[list.value]; ok {
+		SetVar(ds, list, listToken)
 	}
-	return newList
+	return listToken
 }
 
-func Or(ds *dataStore, params ...string) bool {
+func Or(ds *dataStore, params ...token) bool {
 	res := false
 	for i, v := range params {
 		info := GetValue(ds, v)
@@ -560,7 +559,7 @@ func Or(ds *dataStore, params ...string) bool {
 	return res
 }
 
-func Not(ds *dataStore, val string) bool {
+func Not(ds *dataStore, val token) bool {
 	info := GetValue(ds, val)
 	if info.variableType != Bool {
 		log.Fatal("Error in \"not\", expected \"Bool\" found ", info.variableType)
@@ -572,21 +571,21 @@ func Not(ds *dataStore, val string) bool {
 	return true
 }
 
-func GetFunctionBody(params ...string) (string, int) {
+func GetFunctionBody(params ...token) (token, int) {
 	for i, v := range params {
-		if strings.Index(v, "(") == 0 {
+		if v.tokenType == UnTokenized {
 			return v, i + 1
 		}
 	}
-	return "", -1
+	return GetToken(""), -1
 }
 
-func MakeFunction(ds *dataStore, scopes int, params ...string) {
+func MakeFunction(ds *dataStore, scopes int, params ...token) {
 	var f function
 	body, index := GetFunctionBody(params[1:]...)
 	f.body = body
-	f.name = params[0]
-	paramList := GetVariableInfo("", "["+strings.Join(params[1:index], " ")+"]")
+	f.name = params[0].value
+	paramList := GetVariableInfo("", GetToken("["+strings.Join(TokensToValue(params[1:index]), " ")+"]"))
 	f.params = paramList
 
 	if scopes < len(ds.scopedFuncs) && StrArrIncludes(ds.scopedFuncs[scopes], f.name) {
@@ -619,15 +618,15 @@ func MakeFunction(ds *dataStore, scopes int, params ...string) {
 	}
 }
 
-func CallFunc(ds *dataStore, scopes int, params ...string) (bool, string) {
+func CallFunc(ds *dataStore, scopes int, params ...token) (bool, []token) {
 	name := params[0]
 	inputs := params[1:]
-	f := ds.funcs[name][len(ds.funcs[name])-1]
+	f := ds.funcs[name.value][len(ds.funcs[name.value])-1]
 	funcParams := SplitList(f.params.value)
 	for i, v := range funcParams {
-		MakeVar(ds, scopes, v, GetValue(ds, inputs[i]).value)
+		MakeVar(ds, scopes, GetToken(v), GetToken(GetValue(ds, inputs[i]).value))
 	}
-	hasReturn, toReturn := Eval(ds, f.body, scopes, false)
+	hasReturn, toReturn := Eval(ds, Tokenize(f.body.value), scopes, false)
 	ds.inFunc = false
 	return hasReturn, toReturn
 }

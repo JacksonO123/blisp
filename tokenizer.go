@@ -83,6 +83,11 @@ func Tokenize(code string) []token {
 	tokenMap := make(map[rune]func(*[]token, string, *int))
 	InitTokenMap(tokenMap)
 	for i := 0; i < len(code); i++ {
+		if code[i] == '"' {
+			if i > 0 && code[i-1] == '\\' {
+				continue
+			}
+		}
 		if val, ok := tokenMap[rune(code[i])]; ok {
 			if len(temp) > 0 {
 				t := GetToken(string(temp))
@@ -91,8 +96,10 @@ func Tokenize(code string) []token {
 			}
 			val(&res, code[i:], &i)
 		} else if code[i] == ' ' {
-			t := GetToken(string(temp))
-			res = append(res, t)
+			if len(strings.TrimSpace(string(temp))) > 0 {
+				t := GetToken(string(temp))
+				res = append(res, t)
+			}
 			temp = []rune{}
 		} else {
 			exclude := []string{"\n", "\t"}
@@ -100,6 +107,10 @@ func Tokenize(code string) []token {
 				temp = append(temp, rune(code[i]))
 			}
 		}
+	}
+	if len(strings.TrimSpace(string(temp))) > 0 {
+		t := GetToken((string(temp)))
+		res = append(res, t)
 	}
 	return res
 }

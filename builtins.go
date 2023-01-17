@@ -163,10 +163,10 @@ func InitBuiltins(ds *dataStore) {
 		}
 		res := ListFunc(ds, AppendToList, params...)
 		if _, ok := ds.vars[params[0].value]; ok {
-			SetVar(ds, params[0], GetToken(res))
+			SetVar(ds, params[0], res)
 			return true, []token{GetToken("\"(appending [" + QuoteToQuoteLiteral(strings.Join(TokensToValue(params[1:]), ",")) + "] to " + params[0].value + ")\"")}
 		} else {
-			return true, []token{GetToken(res)}
+			return true, []token{res}
 		}
 	}
 	ds.builtins["prepend"] = func(ds *dataStore, scopes int, params []token) (bool, []token) {
@@ -175,10 +175,10 @@ func InitBuiltins(ds *dataStore) {
 		}
 		res := ListFunc(ds, PrependToList, params...)
 		if _, ok := ds.vars[params[0].value]; ok {
-			SetVar(ds, params[0], GetToken(res))
+			SetVar(ds, params[0], res)
 			return true, []token{GetToken("\"(prepending [" + QuoteToQuoteLiteral(strings.Join(TokensToValue(params[1:]), " ")) + "] to " + params[0].value + ")\"")}
 		} else {
-			return true, []token{GetToken(res)}
+			return true, []token{res}
 		}
 	}
 	ds.builtins["concat"] = func(ds *dataStore, scopes int, params []token) (bool, []token) {
@@ -192,7 +192,7 @@ func InitBuiltins(ds *dataStore) {
 		return false, []token{}
 	}
 	ds.builtins["break"] = func(ds *dataStore, scopes int, params []token) (bool, []token) {
-		return true, Tokenize("(break)")
+		return true, []token{GetToken("break")}
 	}
 	ds.builtins["pop"] = func(ds *dataStore, scopes int, params []token) (bool, []token) {
 		if len(params) != 1 {

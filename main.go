@@ -107,9 +107,14 @@ func GetVariableInfo(name string, val token) variable {
 }
 
 // fix this
-func SplitList(list string) []string {
-	res := []string{}
-	return res
+func SplitList(list string) []token {
+	res := list[1 : len(list)-1]
+	return Tokenize(res)
+}
+
+// convert this
+func JoinList(list []token) string {
+	return "[" + strings.Join(TokensToValue(list), " ") + "]"
 }
 
 func GetBlocks(code []token) [][]token {
@@ -179,8 +184,8 @@ func GetScopeEnd(block []token) int {
 func JoinTokens(tokens []token) string {
 	res := ""
 	for i, v := range tokens {
-		if len(res) > 0 {
-			if tokens[i-1].tokenType == Identifier {
+		if i > 0 {
+			if (tokens[i-1].tokenType == Identifier || tokens[i-1].tokenType == BoolToken) && tokens[i].tokenType != CloseParen {
 				res += " " + v.value
 			} else {
 				res += v.value
@@ -229,19 +234,20 @@ func Flatten(ds *dataStore, block []token) []token {
 		} else if res[i].tokenType == Identifier {
 			if i > 0 && res[i-1].tokenType == OpenParen && res[i].value == "body" {
 				bodyStart := i - 1
-				i += GetScopeEnd(res[i:]) + 1
-				body := res[bodyStart:i]
+				blockEnd := GetScopeEnd(res[i:]) + i
+				body := res[bodyStart : blockEnd+1]
+				body = body[2 : len(body)-1]
 				var t token
 				t.tokenType = UnTokenized
 				t.value = JoinTokens(body)
 
 				start := res[:starts[len(starts)-1]]
-				end := res[i:]
+				end := res[blockEnd+1:]
 				tempRes := append(start, t)
 				tempRes = append(tempRes, end...)
 				res = tempRes
-
 				starts = starts[:len(starts)-1]
+				i--
 			}
 		}
 	}
@@ -303,12 +309,12 @@ func Eval(ds *dataStore, code []token, scopes int, root bool) (bool, []token) {
 	blocks := GetBlocks(code)
 	hasReturn := true
 	toReturn := []token{}
-	if len(blocks) > 1 {
+	if len(blocks) != 1 {
 		hasReturn = false
 		for _, block := range blocks {
 			blockReturn, blockVal := Eval(ds, block, scopes+1, false)
-			if blockReturn {
-				if JoinTokens(blockVal) == "(break)" {
+			if blockReturn && len(blockVal) > 0 {
+				if blockVal[0] == GetToken("break") {
 					hasReturn = true
 					toReturn = blockVal
 					break

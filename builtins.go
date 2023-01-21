@@ -4,15 +4,11 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"time"
 )
 
 func InitBuiltins(ds *dataStore) {
 	ds.builtins["print"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
-		printStart := time.Now()
 		Print(ds, params...)
-		printEnd := time.Since(printStart)
-		fmt.Println(printEnd)
 		return true, []dataType{{dataType: String, value: "\"(printing)\""}}
 	}
 	ds.builtins["+"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {

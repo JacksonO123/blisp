@@ -3,7 +3,11 @@
 To run blisp
 
 ```sh
-./run.sh [FILENAME]
+./run.sh [FILENAME] [FLAGS]
 ```
 
-Not including [FILENAME] will start a repl
+Not including [FILENAME] [FLAGS] will start a repl
+
+The `-b` flag will benchmark the evaluation
+
+_Jackson Otto_

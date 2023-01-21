@@ -99,7 +99,6 @@ func GetString(str string) (string, int) {
 func Tokenize(code string) []token {
 	res := []token{}
 	temp := []rune{}
-	exclude := []string{"\n", "\t"}
 	for i := 0; i < len(code); i++ {
 		if code[i] == '"' {
 			var t token
@@ -108,16 +107,15 @@ func Tokenize(code string) []token {
 			t.value = str
 			res = append(res, t)
 			i += index - 1
-		} else if code[i] == ' ' || StrArrIncludes([]string{string(code[i])}, exclude...) {
-			if len(strings.TrimSpace(string(temp))) > 0 {
+		} else if code[i] == ' ' || code[i] == '\n' || code[i] == '\t' {
+			if len(temp) > 0 {
 				t := GetToken(string(temp))
 				res = append(res, t)
 			}
 			temp = []rune{}
 		} else {
-			val := strings.TrimSpace(string(code[i]))
 			var t token
-			switch val[0] {
+			switch code[i] {
 			case '(':
 				t.tokenType = OpenParen
 			case ')':
@@ -132,7 +130,7 @@ func Tokenize(code string) []token {
 					continue
 				}
 			}
-			t.value = val
+			t.value = string(code[i])
 			if len(strings.TrimSpace(string(temp))) > 0 {
 				t := GetToken(string(temp))
 				res = append(res, t)

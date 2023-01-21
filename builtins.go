@@ -72,10 +72,10 @@ func InitBuiltins(ds *dataStore) {
 			return true, []dataType{{dataType: String, value: "\"(setting " + QuoteToQuoteLiteral(params[0].value.(string)) + " to " + GetStrValue(params[1]) + ")\""}}
 		} else {
 			var index int
-			if params[1].dataType == Float {
-				index = int(params[1].value.(float64))
-			} else {
+			if params[1].dataType == Int {
 				index = params[1].value.(int)
+			} else {
+				log.Fatal("Cannot set index of array with type \"Float\"")
 			}
 			SetIndex(ds, params[0], index, params[2])
 			return true, []dataType{{dataType: String, value: "\"(setting " + QuoteToQuoteLiteral(params[0].value.(string)) + " at index " + GetStrValue(params[1]) + " to " + QuoteToQuoteLiteral(GetStrValue(params[1])) + ")\""}}
@@ -206,18 +206,18 @@ func InitBuiltins(ds *dataStore) {
 	// ds.builtins["break"] = func(ds *dataStore, scopes int, params []token) (bool, []token) {
 	// 	return true, [][]token{GetToken("break")}
 	// }
-	// ds.builtins["pop"] = func(ds *dataStore, scopes int, params []token) (bool, []token) {
-	// 	if len(params) != 1 {
-	// 		log.Fatal("Invalid number of parameters to \"pop\". Expected 1 found ", len(params))
-	// 	}
-	// 	return true, [][]token{Pop(ds, params[0])}
-	// }
-	// ds.builtins["remove"] = func(ds *dataStore, scopes int, params []token) (bool, []token) {
-	// 	if len(params) != 2 {
-	// 		log.Fatal("Invalid number of parameters to \"remove\". Expected 2 found ", len(params))
-	// 	}
-	// 	return true, [][]token{Remove(ds, params[0], params[1])}
-	// }
+	ds.builtins["pop"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		if len(params) != 1 {
+			log.Fatal("Invalid number of parameters to \"pop\". Expected 1 found ", len(params))
+		}
+		return true, []dataType{Pop(ds, params[0])}
+	}
+	ds.builtins["remove"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		if len(params) != 2 {
+			log.Fatal("Invalid number of parameters to \"remove\". Expected 2 found ", len(params))
+		}
+		return true, []dataType{Remove(ds, params[0], params[1])}
+	}
 	ds.builtins["len"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
 		if len(params) != 1 {
 			log.Fatal("Invalid number of parameters to \"len\". Expected 1 found ", len(params))

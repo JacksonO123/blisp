@@ -82,6 +82,7 @@ func GetArrStr(data dataType) dataType {
 
 func PrintArr(data dataType) {
 	arr := data.value.([]dataType)
+	os.Stdout.Write([]byte("["))
 	for i, v := range arr {
 		if v.dataType == List {
 			PrintArr(v)
@@ -92,10 +93,10 @@ func PrintArr(data dataType) {
 			os.Stdout.Write([]byte(" "))
 		}
 	}
+	os.Stdout.Write([]byte("]"))
 }
 
 func Print(ds *dataStore, params ...dataType) {
-	os.Stdout.Write([]byte("["))
 	for i, v := range params {
 		if v.dataType == Ident {
 			v = GetDsValue(ds, v)
@@ -112,7 +113,7 @@ func Print(ds *dataStore, params ...dataType) {
 			os.Stdout.Write([]byte(", "))
 		}
 	}
-	os.Stdout.Write([]byte("]\n"))
+	os.Stdout.Write([]byte("\n"))
 }
 
 // value of dataType passed in as a string
@@ -597,43 +598,55 @@ func Concat(ds *dataStore, params ...dataType) string {
 	return res
 }
 
-func Pop(ds *dataStore, list token) token {
-	// val := GetDsValue(ds, list)
-	// if val.variableType != List {
-	// 	log.Fatal("Error in \"pop\" expected \"List\" found ", val.variableType)
-	// }
-	// listItems := SplitList(val.value)
-	// if len(listItems) > 0 {
-	// 	lastItem := listItems[len(listItems)-1]
-	// 	listItems = listItems[:len(listItems)-1]
-	// 	if _, ok := ds.vars[list.value]; ok {
-	// 		SetVar(ds, list, GetToken(JoinList(listItems)))
-	// 	}
-	// 	return lastItem
-	// } else {
-	// 	return GetToken("")
-	// }
-	return token{}
+func Pop(ds *dataStore, list dataType) dataType {
+	isIdent := false
+	name := ""
+	if list.dataType == Ident {
+		isIdent = true
+		name = list.value.(string)
+		list = GetDsValue(ds, list)
+	}
+	if list.dataType != List {
+		log.Fatal("Error in \"pop\" expected \"List\" found ", dataTypes[list.dataType])
+	}
+	items := list.value.([]dataType)
+	if len(items) > 0 {
+		val := items[len(items)-1]
+		items = items[:len(items)-1]
+		list.value = items
+		if isIdent {
+			SetVar(ds, name, list)
+		}
+		return val
+	} else {
+		return dataType{dataType: Nil, value: nil}
+	}
 }
 
-func Remove(ds *dataStore, list token, index token) token {
-	// val := GetDsValue(ds, list)
-	// listIndex := int(GetFloat64FromToken(ds, index))
-	// if val.variableType != List {
-	// 	log.Fatal("Error in \"remove\" expected \"List\" found ", val.variableType)
-	// }
-	// listItems := SplitList(val.value)
-	// if len(listItems) > 0 {
-	// 	item := listItems[listIndex]
-	// 	listItems = append(listItems[:listIndex], listItems[listIndex+1:]...)
-	// 	if _, ok := ds.vars[list.value]; ok {
-	// 		SetVar(ds, list, GetToken(JoinList(listItems)))
-	// 	}
-	// 	return item
-	// } else {
-	// 	return GetToken("")
-	// }
-	return token{}
+func Remove(ds *dataStore, list dataType, index dataType) dataType {
+	isIdent := false
+	name := ""
+	if list.dataType == Ident {
+		isIdent = true
+		name = list.value.(string)
+		list = GetDsValue(ds, list)
+	}
+	listIndex := index.value.(int)
+	if list.dataType != List {
+		log.Fatal("Error in \"remove\" expected \"List\" found ", dataTypes[list.dataType])
+	}
+	items := list.value.([]dataType)
+	if len(items) > 0 {
+		item := items[listIndex]
+		items = append(items[:listIndex], items[listIndex+1:]...)
+		list.value = items
+		if isIdent {
+			SetVar(ds, name, list)
+		}
+		return item
+	} else {
+		return dataType{dataType: Nil, value: nil}
+	}
 }
 
 func Len(ds *dataStore, list dataType) int {
@@ -666,6 +679,9 @@ func And(ds *dataStore, params ...token) bool {
 }
 
 func SetIndex(ds *dataStore, list dataType, index int, value dataType) (bool, dataType) {
+	if value.dataType == Ident {
+		value = GetDsValue(ds, value)
+	}
 	if list.dataType == Ident {
 		name := list.value.(string)
 		list = GetDsValue(ds, list)

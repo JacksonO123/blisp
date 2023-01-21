@@ -1,20 +1,19 @@
 package main
 
 import (
+	"fmt"
 	"log"
+	"os"
+	"time"
 )
 
 func InitBuiltins(ds *dataStore) {
 	ds.builtins["print"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		printStart := time.Now()
 		Print(ds, params...)
-		toPrint := ""
-		for i, v := range params {
-			toPrint += GetStrValue(v)
-			if i < len(params)-1 {
-				toPrint += ", "
-			}
-		}
-		return true, []dataType{{dataType: String, value: "\"(printing " + toPrint + ")\""}}
+		printEnd := time.Since(printStart)
+		fmt.Println(printEnd)
+		return true, []dataType{{dataType: String, value: "\"(printing)\""}}
 	}
 	ds.builtins["+"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
 		return true, []dataType{Add(ds, params...)}
@@ -143,25 +142,25 @@ func InitBuiltins(ds *dataStore) {
 		}
 		return false, []dataType{}
 	}
-	// ds.builtins["scan-line"] = func(ds *dataStore, scopes int, params []token) (bool, []token) {
-	// 	if len(params) == 0 {
-	// 		line := ""
-	// 		fmt.Scanln(&line)
-	// 		return true, []token{GetToken("\"" + line + "\"")}
-	// 	} else if len(params) == 1 {
-	// 		line := ""
-	// 		fmt.Scanln(&line)
-	// 		if _, ok := ds.vars[params[0].value]; ok {
-	// 			// SetVar(ds, params[0], GetToken("\""+line+"\""))
-	// 			return true, []token{GetToken("\"(setting " + params[0].value + " to " + line + ")\"")}
-	// 		} else {
-	// 			log.Fatal("Unable to assign value to", params[0])
-	// 		}
-	// 	} else {
-	// 		log.Fatal("Invalid number of parameters to \"scan-line\". Expected 0 or 2 found ", len(params))
-	// 	}
-	// 	return false, []token{}
-	// }
+	ds.builtins["scan-line"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		if len(params) == 0 {
+			line := ""
+			fmt.Scanln(&line)
+			return true, []dataType{{dataType: String, value: "\"" + line + "\""}}
+		} else if len(params) == 1 {
+			line := ""
+			fmt.Scanln(&line)
+			if params[0].dataType == Ident {
+				SetVar(ds, params[0].value.(string), dataType{dataType: String, value: "\"" + line + "\""})
+				return true, []dataType{{dataType: String, value: "\"(setting " + GetStrValue(params[0]) + " to " + line + ")\""}}
+			} else {
+				log.Fatal("Unable to assign value to", params[0])
+			}
+		} else {
+			log.Fatal("Invalid number of parameters to \"scan-line\". Expected 0 or 2 found ", len(params))
+		}
+		return false, []dataType{}
+	}
 	ds.builtins["if"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
 		if len(params) == 2 || len(params) == 3 {
 			return If(ds, scopes, params...)
@@ -173,14 +172,14 @@ func InitBuiltins(ds *dataStore) {
 	ds.builtins["body"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
 		return Eval(ds, params[0].value.([]token), scopes, false)
 	}
-	// ds.builtins["eq"] = func(ds *dataStore, scopes int, params []token) (bool, []token) {
-	// 	if len(params) > 0 {
-	// 		return true, [][]token{GetToken(fmt.Sprint(Eq(ds, params...)))}
-	// 	} else {
-	// 		log.Fatal("Invalid number of parameters to \"eq\". Expected 1 or more found ", len(params))
-	// 	}
-	// 	return false, [][]token{}
-	// }
+	ds.builtins["eq"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		if len(params) > 0 {
+			return true, []dataType{{dataType: Bool, value: Eq(ds, params...)}}
+		} else {
+			log.Fatal("Invalid number of parameters to \"eq\". Expected 1 or more found ", len(params))
+		}
+		return false, []dataType{}
+	}
 	ds.builtins["append"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
 		if len(params) < 2 {
 			log.Fatal("Invalid number of parameters to \"append\". Expected 2 or more found ", len(params))
@@ -188,28 +187,26 @@ func InitBuiltins(ds *dataStore) {
 		res := ListFunc(ds, AppendToList, params...)
 		return true, []dataType{res}
 	}
-	// ds.builtins["prepend"] = func(ds *dataStore, scopes int, params []token) (bool, []token) {
-	// 	if len(params) < 2 {
-	// 		log.Fatal("Invalid number of parameters to \"prepend\". Expected 2 or more found ", len(params))
-	// 	}
-	// 	res := ListFunc(ds, PrependToList, params...)
-	// 	if _, ok := ds.vars[params[0].value]; ok {
-	// 		// SetVar(ds, params[0], res)
-	// 		return true, [][]token{GetToken("\"(prepending [" + QuoteToQuoteLiteral(strings.Join(TokensToValue(params[1:]), " ")) + "] to " + params[0].value + ")\"")}
-	// 	} else {
-	// 		return true, [][]token{res}
-	// 	}
-	// }
-	// ds.builtins["concat"] = func(ds *dataStore, scopes int, params []token) (bool, []token) {
-	// 	return true, [][]token{GetToken("\"" + Concat(ds, params...) + "\"")}
-	// }
-	// ds.builtins["exit"] = func(ds *dataStore, scopes int, params []token) (bool, []token) {
-	// 	if len(params) != 0 {
-	// 		log.Fatal("Invalid number of parameters to \"exit\". Expected 0 found ", len(params))
-	// 	}
-	// 	os.Exit(0)
-	// 	return false, [][]token{}
-	// }
+	ds.builtins["prepend"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		if len(params) < 2 {
+			log.Fatal("Invalid number of parameters to \"prepend\". Expected 2 or more found ", len(params))
+		}
+		res := ListFunc(ds, PrependToList, params...)
+		return true, []dataType{res}
+	}
+	ds.builtins["concat"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		return true, []dataType{{dataType: String, value: "\"" + Concat(ds, params...) + "\""}}
+	}
+	ds.builtins["exit"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		if len(params) == 0 {
+			os.Exit(0)
+		} else if len(params) == 1 {
+			os.Exit(params[0].value.(int))
+		} else {
+			log.Fatal("Invalid number of parameters to \"exit\". Expected 0, 1, or more found ", len(params))
+		}
+		return false, []dataType{}
+	}
 	// ds.builtins["break"] = func(ds *dataStore, scopes int, params []token) (bool, []token) {
 	// 	return true, [][]token{GetToken("break")}
 	// }
@@ -225,12 +222,12 @@ func InitBuiltins(ds *dataStore) {
 	// 	}
 	// 	return true, [][]token{Remove(ds, params[0], params[1])}
 	// }
-	// ds.builtins["len"] = func(ds *dataStore, scopes int, params []token) (bool, []token) {
-	// 	if len(params) != 1 {
-	// 		log.Fatal("Invalid number of parameters to \"len\". Expected 1 found ", len(params))
-	// 	}
-	// 	return true, [][]token{GetToken(fmt.Sprint(Len(ds, params[0])))}
-	// }
+	ds.builtins["len"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		if len(params) != 1 {
+			log.Fatal("Invalid number of parameters to \"len\". Expected 1 found ", len(params))
+		}
+		return true, []dataType{{dataType: Int, value: Len(ds, params[0])}}
+	}
 	// ds.builtins["and"] = func(ds *dataStore, scopes int, params []token) (bool, []token) {
 	// 	if len(params) == 0 {
 	// 		log.Fatal("Invalid number of parameters to \"and\". Expected 1 or more found ", len(params))

@@ -90,7 +90,7 @@ func GetString(str string) (string, int) {
 	for i, v := range str {
 		if i > 0 && v == '"' && str[i-1] != '\\' {
 			i++
-			return "\"" + str[:i], i
+			return str[:i], i
 		}
 	}
 	return "", 0
@@ -104,10 +104,10 @@ func Tokenize(code string) []token {
 		if code[i] == '"' {
 			var t token
 			t.tokenType = StringToken
-			str, index := GetString(code[i+1:])
+			str, index := GetString(code[i:])
 			t.value = str
 			res = append(res, t)
-			i += index
+			i += index - 1
 		} else if code[i] == ' ' || StrArrIncludes([]string{string(code[i])}, exclude...) {
 			if len(strings.TrimSpace(string(temp))) > 0 {
 				t := GetToken(string(temp))

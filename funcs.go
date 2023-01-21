@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"os"
 )
 
 var reserved []string = []string{
@@ -39,18 +40,6 @@ var reserved []string = []string{
 	"not",
 	"func",
 	"return",
-}
-
-var tokenTypes []string = []string{
-	"Identifier",
-	"OpenParen",
-	"CloseParen",
-	"OpenBracket",
-	"CloseBracket",
-	"StringToken",
-	"BoolToken",
-	"IntToken",
-	"FloatToken",
 }
 
 func GetArr(tokens []token) (dataType, int) {
@@ -91,7 +80,22 @@ func GetArrStr(data dataType) dataType {
 	return dataType{dataType: String, value: res}
 }
 
+func PrintArr(data dataType) {
+	arr := data.value.([]dataType)
+	for i, v := range arr {
+		if v.dataType == List {
+			PrintArr(v)
+		} else {
+			os.Stdout.Write([]byte(fmt.Sprint(v.value)))
+		}
+		if i < len(arr)-1 {
+			os.Stdout.Write([]byte(" "))
+		}
+	}
+}
+
 func Print(ds *dataStore, params ...dataType) {
+	os.Stdout.Write([]byte("["))
 	for i, v := range params {
 		if v.dataType == Ident {
 			v = GetDsValue(ds, v)
@@ -100,15 +104,15 @@ func Print(ds *dataStore, params ...dataType) {
 			}
 		}
 		if v.dataType == List {
-			fmt.Print(GetDsValue(ds, GetArrStr(v)).value.(string))
+			PrintArr(v)
 		} else {
-			fmt.Print(fmt.Sprint(v.value))
+			os.Stdout.Write([]byte(fmt.Sprint(v.value)))
 		}
 		if i < len(params)-1 {
-			fmt.Print(", ")
+			os.Stdout.Write([]byte(", "))
 		}
 	}
-	fmt.Println()
+	os.Stdout.Write([]byte("]\n"))
 }
 
 // value of dataType passed in as a string
@@ -125,10 +129,14 @@ func GetStrValue(data dataType) string {
 func Add(ds *dataStore, params ...dataType) dataType {
 	var res float64 = 0
 	for _, v := range params {
-		if v.dataType == Int {
-			res += float64(v.value.(int))
-		} else if v.dataType == Float {
-			res += v.value.(float64)
+		info := v
+		if info.dataType == Ident {
+			info = GetDsValue(ds, info)
+		}
+		if info.dataType == Int {
+			res += float64(info.value.(int))
+		} else if info.dataType == Float {
+			res += info.value.(float64)
 		}
 	}
 	var d dataType
@@ -144,19 +152,27 @@ func Add(ds *dataStore, params ...dataType) dataType {
 
 func Sub(ds *dataStore, params ...dataType) dataType {
 	var res float64 = 0
-	if params[0].dataType == Int {
-		res = float64(params[0].value.(int))
-	} else if params[0].dataType == Float {
-		res = params[0].value.(float64)
+	firstVal := params[0]
+	if firstVal.dataType == Ident {
+		firstVal = GetDsValue(ds, firstVal)
+	}
+	if firstVal.dataType == Int {
+		res = float64(firstVal.value.(int))
+	} else if firstVal.dataType == Float {
+		res = firstVal.value.(float64)
 	}
 	if len(params) == 1 {
 		res *= -1
 	} else {
 		for _, v := range params[1:] {
-			if v.dataType == Int {
-				res -= float64(v.value.(int))
-			} else if v.dataType == Float {
-				res -= v.value.(float64)
+			info := v
+			if info.dataType == Ident {
+				info = GetDsValue(ds, info)
+			}
+			if info.dataType == Int {
+				res -= float64(info.value.(int))
+			} else if info.dataType == Float {
+				res -= info.value.(float64)
 			}
 		}
 	}
@@ -173,10 +189,14 @@ func Sub(ds *dataStore, params ...dataType) dataType {
 
 func Mult(ds *dataStore, params ...dataType) dataType {
 	var res float64 = 0
-	if params[0].dataType == Int {
-		res = float64(params[0].value.(int))
-	} else if params[0].dataType == Float {
-		res = params[0].value.(float64)
+	firstVal := params[0]
+	if firstVal.dataType == Ident {
+		firstVal = GetDsValue(ds, firstVal)
+	}
+	if firstVal.dataType == Int {
+		res = float64(firstVal.value.(int))
+	} else if firstVal.dataType == Float {
+		res = firstVal.value.(float64)
 	}
 	for _, v := range params[1:] {
 		if v.dataType == Int {
@@ -198,10 +218,14 @@ func Mult(ds *dataStore, params ...dataType) dataType {
 
 func Divide(ds *dataStore, params ...dataType) dataType {
 	var res float64 = 0
-	if params[0].dataType == Int {
-		res = float64(params[0].value.(int))
-	} else if params[0].dataType == Float {
-		res = params[0].value.(float64)
+	firstVal := params[0]
+	if firstVal.dataType == Ident {
+		firstVal = GetDsValue(ds, firstVal)
+	}
+	if firstVal.dataType == Int {
+		res = float64(firstVal.value.(int))
+	} else if firstVal.dataType == Float {
+		res = firstVal.value.(float64)
 	}
 	for _, v := range params[1:] {
 		if v.dataType == Int {
@@ -223,14 +247,20 @@ func Divide(ds *dataStore, params ...dataType) dataType {
 
 func Exp(ds *dataStore, base dataType, exp dataType) dataType {
 	var num1 float64 = 0
+	if base.dataType == Ident {
+		base = GetDsValue(ds, base)
+	}
 	if base.dataType == Float {
 		num1 = base.value.(float64)
 	} else {
 		num1 = float64(base.value.(int))
 	}
 	var num2 float64 = 0
-	if base.dataType == Float {
-		num2 = base.value.(float64)
+	if exp.dataType == Ident {
+		exp = GetDsValue(ds, exp)
+	}
+	if exp.dataType == Float {
+		num2 = exp.value.(float64)
 	} else {
 		num2 = float64(exp.value.(int))
 	}
@@ -248,12 +278,18 @@ func Exp(ds *dataStore, base dataType, exp dataType) dataType {
 
 func Mod(ds *dataStore, num1 dataType, num2 dataType) dataType {
 	val1 := 0
+	if num1.dataType == Ident {
+		num1 = GetDsValue(ds, num1)
+	}
 	if num1.dataType == Float {
 		log.Fatal("Unable to apply operator % on type \"Float\"")
 	} else {
 		val1 = num1.value.(int)
 	}
 	val2 := 0
+	if num2.dataType == Ident {
+		num2 = GetDsValue(ds, num2)
+	}
 	if num2.dataType == Float {
 		log.Fatal("Unable to apply operator % on type \"Float\"")
 	} else {
@@ -460,14 +496,23 @@ func LoopFromTo(ds *dataStore, scopes int, start dataType, max dataType, indexIt
 	}
 }
 
-func Eq(ds *dataStore, params ...token) bool {
-	// eq := true
-	// for i := 0; i < len(params)-1; i++ {
-	// 	if GetDsValue(ds, params[i])[0].value != GetDsValue(ds, params[i+1])[0].value {
-	// 		eq = false
-	// 	}
-	// }
-	return false
+func Eq(ds *dataStore, params ...dataType) bool {
+	eq := true
+	for i := 0; i < len(params)-1; i++ {
+		val1 := params[i]
+		val2 := params[i+1]
+		if val1.dataType == Ident {
+			val1 = GetDsValue(ds, val1)
+		}
+		if val2.dataType == Ident {
+			val2 = GetDsValue(ds, val2)
+		}
+		if val1.value != val2.value {
+			eq = false
+			break
+		}
+	}
+	return eq
 }
 
 func If(ds *dataStore, scopes int, params ...dataType) (bool, []dataType) {
@@ -501,12 +546,15 @@ func AppendToList(ds *dataStore, list []dataType, data ...dataType) []dataType {
 	return list
 }
 
-func PrependToList(list token, toPrepend token) token {
-	// val := list.value
-	// tokens := Tokenize(val[1 : len(val)-1])
-	// res := append([]token{toPrepend}, tokens...)
-	// return GetToken(JoinList(res))
-	return token{}
+func PrependToList(ds *dataStore, list []dataType, data ...dataType) []dataType {
+	for _, v := range data {
+		if v.dataType == Ident {
+			list = append([]dataType{GetDsValue(ds, v)}, list...)
+		} else {
+			list = append([]dataType{v}, list...)
+		}
+	}
+	return list
 }
 
 func ListFunc(ds *dataStore, f func(ds *dataStore, list []dataType, val ...dataType) []dataType, params ...dataType) dataType {
@@ -532,18 +580,21 @@ func ListFunc(ds *dataStore, f func(ds *dataStore, list []dataType, val ...dataT
 	return dataType{dataType: Nil, value: nil}
 }
 
-func Concat(ds *dataStore, params ...token) string {
-	// res := ""
-	// for _, v := range params {
-	// 	info := GetDsValue(ds, v)
-	// 	if info.variableType == String {
-	// 		res += info.value[1 : len(info.value)-1]
-	// 	} else {
-	// 		res += info.value
-	// 	}
-	// }
-	// return res
-	return ""
+func Concat(ds *dataStore, params ...dataType) string {
+	res := ""
+	for _, v := range params {
+		info := v
+		if info.dataType == Ident {
+			info = GetDsValue(ds, info)
+		}
+		if info.dataType == String {
+			val := info.value.(string)
+			res += val[1 : len(val)-1]
+		} else {
+			res += GetStrValue(info)
+		}
+	}
+	return res
 }
 
 func Pop(ds *dataStore, list token) token {
@@ -585,10 +636,11 @@ func Remove(ds *dataStore, list token, index token) token {
 	return token{}
 }
 
-func Len(ds *dataStore, list token) int {
-	// parts := SplitList(GetDsValue(ds, list).value)
-	// return len(parts)
-	return 0
+func Len(ds *dataStore, list dataType) int {
+	if list.dataType == Ident {
+		list = GetDsValue(ds, list)
+	}
+	return len(list.value.([]dataType))
 }
 
 func And(ds *dataStore, params ...token) bool {

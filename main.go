@@ -190,14 +190,16 @@ func QuoteToQuoteLiteral(str string) string {
 
 func GetFuncEnd(f []token) ([]token, int) {
 	parens := 1
-	res := []token{{tokenType: OpenParen, value: "("}}
+	res := []token{}
 	for i := 1; i < len(f); i++ {
 		if f[i].tokenType == OpenParen {
 			parens++
 			res = append(res, f[i])
 		} else if f[i].tokenType == CloseParen {
 			parens--
-			res = append(res, f[i])
+			if parens > 0 {
+				res = append(res, f[i])
+			}
 		} else {
 			res = append(res, f[i])
 		}
@@ -275,13 +277,14 @@ func Eval(ds *dataStore, code []token, scopes int, root bool) (bool, []dataType)
 	funcNames := []string{}
 	hasReturn := true
 	toReturn := []dataType{}
+	reachedBlockEnd := false
 	for i := 0; i < len(code); i++ {
 		if len(funcNames) > 0 && funcNames[len(funcNames)-1] == "body" {
 			funcCall = funcCall[:len(funcCall)-1]
 			funcNames = funcNames[:len(funcNames)-1]
 			i++
-			bodyDataTokens, index := GetFuncEnd(code[i:])
-			i += index + 2
+			bodyDataTokens, _ := GetFuncEnd(code[i-1:])
+			i += len(bodyDataTokens) + 1
 			funcCall[len(funcCall)-1] = append(funcCall[len(funcCall)-1], dataType{dataType: Tokens, value: bodyDataTokens})
 		}
 		if code[i].tokenType == OpenParen {
@@ -295,8 +298,14 @@ func Eval(ds *dataStore, code []token, scopes int, root bool) (bool, []dataType)
 			RemoveScopedVars(ds, len(funcCall)+scopes)
 			funcCall = funcCall[:len(funcCall)-1]
 			funcNames = funcNames[:len(funcNames)-1]
-			if len(funcCall) > 0 && funcReturns {
-				funcCall[len(funcCall)-1] = append(funcCall[len(funcCall)-1], val...)
+			if len(funcCall) > 0 {
+				if funcReturns {
+					funcCall[len(funcCall)-1] = append(funcCall[len(funcCall)-1], val...)
+				}
+			} else if len(funcCall) == 0 {
+				if hasReturn {
+					toReturn = val
+				}
 			}
 		} else if code[i].tokenType == OpenBracket {
 			arr, index := GetArr(code[i:])
@@ -308,6 +317,12 @@ func Eval(ds *dataStore, code []token, scopes int, root bool) (bool, []dataType)
 			code[i].tokenType == BoolToken ||
 			code[i].tokenType == FloatToken {
 			funcCall[len(funcCall)-1] = append(funcCall[len(funcCall)-1], GetDataTypeFromToken(code[i]))
+		}
+		if len(funcCall) == 0 {
+			reachedBlockEnd = true
+		} else if len(funcCall) > 0 && reachedBlockEnd {
+			hasReturn = false
+			toReturn = []dataType{}
 		}
 	}
 	return hasReturn, toReturn

@@ -1,4 +1,4 @@
-module main.go
+module github.com/JacksonO123/blisp
 
 go 1.19
 

@@ -1,75 +1,84 @@
 package main
 
 import (
+	"math"
 	"strings"
 
 	"github.com/valyala/fastjson/fastfloat"
 )
 
-type TokenType string
+type TokenType int
 
 const (
-	Identifier  TokenType = "Identifier"
-	OpenParen   TokenType = "OpenParen"
-	CloseParen  TokenType = "CloseParen"
-	ListToken   TokenType = "ListToken"
-	StringToken TokenType = "StringToken"
-	BoolToken   TokenType = "BoolToken"
-	NumberToken TokenType = "NumberToken"
-	UnTokenized TokenType = "UnTokenized"
+	Identifier TokenType = iota
+	OpenParen
+	CloseParen
+	OpenBracket
+	CloseBracket
+	StringToken
+	BoolToken
+	IntToken
+	FloatToken
 )
 
 type token struct {
 	tokenType TokenType
-	value     string
-}
-
-func InitTokenMap(tm map[rune]func(*[]token, string, *int)) {
-	tm['('] = func(res *[]token, code string, i *int) {
-		var t token
-		t.tokenType = OpenParen
-		t.value = "("
-		*res = append(*res, t)
-	}
-	tm[')'] = func(res *[]token, code string, i *int) {
-		var t token
-		t.tokenType = CloseParen
-		t.value = ")"
-		*res = append(*res, t)
-	}
-	tm['['] = func(res *[]token, code string, i *int) {
-		var t token
-		t.tokenType = ListToken
-		arr, index := GetArr(code)
-		*i += index - 1
-		t.value = arr
-		*res = append(*res, t)
-	}
-	tm['"'] = func(res *[]token, code string, i *int) {
-		var t token
-		t.tokenType = StringToken
-		str, index := GetStrSlice(code)
-		t.value = str
-		*i += index
-		*res = append(*res, t)
-	}
+	value     any
 }
 
 func GetToken(val string) token {
+	val = strings.TrimSpace(val)
 	var t token
-	if len(val) == 0 {
-		t.tokenType = Identifier
-	} else if strings.Index(val, "\"") == 0 {
-		t.tokenType = StringToken
-	} else if strings.Index(val, "[") == 0 {
-		t.tokenType = ListToken
-	} else if val == "true" || val == "false" {
-		t.tokenType = BoolToken
+	if len(val) == 1 {
+		switch val[0] {
+		case '(':
+			t.tokenType = OpenParen
+		case ')':
+			t.tokenType = CloseParen
+		case '[':
+			t.tokenType = OpenBracket
+		case ']':
+			t.tokenType = CloseBracket
+		default:
+			{
+				num, err := fastfloat.Parse(val)
+				if err == nil {
+					if math.Floor(num) == num {
+						t.tokenType = IntToken
+						t.value = int(num)
+					} else {
+						t.tokenType = FloatToken
+						t.value = num
+					}
+					return t
+				} else {
+					t.tokenType = Identifier
+				}
+			}
+		}
 	} else {
-		_, err := fastfloat.Parse(val)
-		if err == nil {
-			t.tokenType = NumberToken
+		if val == "true" {
+			t.tokenType = BoolToken
+			t.value = true
+			return t
+		} else if val == "false" {
+			t.tokenType = BoolToken
+			t.value = false
+			return t
 		} else {
+			num, err := fastfloat.Parse(val)
+			if err == nil {
+				if math.Floor(num) == num {
+					t.tokenType = IntToken
+					t.value = int(num)
+				} else {
+					t.tokenType = FloatToken
+					t.value = num
+				}
+				return t
+			} else {
+				t.tokenType = Identifier
+			}
 			t.tokenType = Identifier
 		}
 	}
@@ -77,39 +86,63 @@ func GetToken(val string) token {
 	return t
 }
 
+func GetString(str string) (string, int) {
+	for i, v := range str {
+		if i > 0 && v == '"' && str[i-1] != '\\' {
+			i++
+			return "\"" + str[:i], i
+		}
+	}
+	return "", 0
+}
+
 func Tokenize(code string) []token {
 	res := []token{}
 	temp := []rune{}
-	tokenMap := make(map[rune]func(*[]token, string, *int))
-	InitTokenMap(tokenMap)
+	exclude := []string{"\n", "\t"}
 	for i := 0; i < len(code); i++ {
 		if code[i] == '"' {
-			if i > 0 && code[i-1] == '\\' {
-				continue
-			}
-		}
-		if val, ok := tokenMap[rune(code[i])]; ok {
-			if len(temp) > 0 {
-				t := GetToken(string(temp))
-				res = append(res, t)
-				temp = []rune{}
-			}
-			val(&res, code[i:], &i)
-		} else if code[i] == ' ' {
+			var t token
+			t.tokenType = StringToken
+			str, index := GetString(code[i+1:])
+			t.value = str
+			res = append(res, t)
+			i += index
+		} else if code[i] == ' ' || StrArrIncludes([]string{string(code[i])}, exclude...) {
 			if len(strings.TrimSpace(string(temp))) > 0 {
 				t := GetToken(string(temp))
 				res = append(res, t)
 			}
 			temp = []rune{}
 		} else {
-			exclude := []string{"\n", "\t"}
-			if !StrArrIncludes([]string{string(code[i])}, exclude...) {
-				temp = append(temp, rune(code[i]))
+			val := strings.TrimSpace(string(code[i]))
+			var t token
+			switch val[0] {
+			case '(':
+				t.tokenType = OpenParen
+			case ')':
+				t.tokenType = CloseParen
+			case '[':
+				t.tokenType = OpenBracket
+			case ']':
+				t.tokenType = CloseBracket
+			default:
+				{
+					temp = append(temp, rune(code[i]))
+					continue
+				}
 			}
+			t.value = val
+			if len(strings.TrimSpace(string(temp))) > 0 {
+				t := GetToken(string(temp))
+				res = append(res, t)
+			}
+			temp = []rune{}
+			res = append(res, GetToken(string(code[i])))
 		}
 	}
 	if len(strings.TrimSpace(string(temp))) > 0 {
-		t := GetToken((string(temp)))
+		t := GetToken(string(temp))
 		res = append(res, t)
 	}
 	return res

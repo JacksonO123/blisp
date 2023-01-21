@@ -4,36 +4,51 @@ import (
 	"bufio"
 	"fmt"
 	"log"
-	"math"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
 	"time"
-
-	"github.com/valyala/fastjson/fastfloat"
 )
 
-type VariableType string
+type DataType int
+
+var dataTypes []string = []string{
+	"Int",
+	"String",
+	"Float",
+	"Bool",
+	"List",
+	"Identifier",
+	"Func",
+	"Nil",
+}
 
 const (
-	Int    VariableType = "Int"
-	String VariableType = "String"
-	Float  VariableType = "Float"
-	Bool   VariableType = "Bool"
-	List   VariableType = "List"
+	Int DataType = iota
+	String
+	Float
+	Bool
+	List
+	Ident
+	Func
+	Nil
 )
 
+type dataType struct {
+	dataType DataType
+	value    any
+}
+
 type variable struct {
-	variableType VariableType
-	name         string
-	value        string
+	name string
+	data dataType
 }
 
 type function struct {
 	name   string
-	body   token
-	params variable
+	body   []token
+	params []dataType
 }
 
 type dataStore struct {
@@ -43,15 +58,9 @@ type dataStore struct {
 	funcs            map[string][]function
 	scopedFuncs      [][]string
 	scopedRedefFuncs [][]string
-	builtins         map[string]func(*dataStore, int, []token) (bool, []token)
+	builtins         map[string]func(*dataStore, int, []dataType) (bool, []dataType)
 	inFunc           bool
 	inLoop           bool
-}
-
-func check(e error) {
-	if e != nil {
-		log.Fatal(e)
-	}
 }
 
 func StrArrIncludes(arr []string, val ...string) bool {
@@ -65,75 +74,27 @@ func StrArrIncludes(arr []string, val ...string) bool {
 	return false
 }
 
-func StringArrMap(arr []string, f func(string) string) []string {
-	newArr := arr
-	for i := range arr {
-		newArr[i] = f(newArr[i])
-	}
-	return newArr
-}
-
-func TokensToValue(tokens []token) []string {
-	res := []string{}
-	for _, v := range tokens {
-		res = append(res, v.value)
+func StrArrMap(arr []string, f func(string) string) []string {
+	res := arr
+	for i, v := range arr {
+		res[i] = f(v)
 	}
 	return res
 }
 
-func GetVariableInfo(name string, val token) variable {
+func TokensToString(tokens []token) []string {
+	res := []string{}
+	for _, v := range tokens {
+		res = append(res, fmt.Sprint(v.value))
+	}
+	return res
+}
+
+func GetVariableFrom(name string, val dataType) variable {
 	var variable variable
 	variable.name = name
-	if val.tokenType == StringToken {
-		variable.variableType = String
-	} else if val.tokenType == ListToken {
-		variable.variableType = List
-	} else if val.tokenType == BoolToken {
-		variable.variableType = Bool
-	} else {
-		num, err := fastfloat.Parse(val.value)
-		if err == nil {
-			if math.Floor(num) != num {
-				variable.variableType = Float
-			} else {
-				variable.variableType = Int
-			}
-		} else {
-			log.Fatal("Unknown value: ", val.value)
-		}
-	}
-	variable.value = val.value
+	variable.data = val
 	return variable
-}
-
-// fix this
-func SplitList(list string) []token {
-	res := list[1 : len(list)-1]
-	return Tokenize(res)
-}
-
-// convert this
-func JoinList(list []token) string {
-	return "[" + strings.Join(TokensToValue(list), " ") + "]"
-}
-
-func GetBlocks(code []token) [][]token {
-	temp := []token{}
-	var blocks [][]token
-	parenScopes := 0
-	for _, c := range code {
-		if c.tokenType == OpenParen {
-			parenScopes++
-		} else if c.tokenType == CloseParen {
-			parenScopes--
-		}
-		temp = append(temp, c)
-		if parenScopes == 0 && len(temp) > 0 {
-			blocks = append(blocks, temp)
-			temp = []token{}
-		}
-	}
-	return blocks
 }
 
 func RemoveScopedVars(ds *dataStore, keepScopes int) {
@@ -146,8 +107,7 @@ func RemoveScopedVars(ds *dataStore, keepScopes int) {
 			}
 		}
 		for _, v := range varArrToFree {
-			t := GetToken(v)
-			FreeVar(ds, t)
+			FreeVar(ds, v)
 		}
 		ds.scopedVars = ds.scopedVars[:len(ds.scopedVars)-1]
 	}
@@ -166,109 +126,32 @@ func RemoveScopedVars(ds *dataStore, keepScopes int) {
 	}
 }
 
-func GetScopeEnd(block []token) int {
-	scopes := 1
-	for i, v := range block {
-		if v.tokenType == OpenParen {
-			scopes++
-		} else if v.tokenType == CloseParen {
-			scopes--
-		}
-		if scopes == 0 {
-			return i
-		}
-	}
-	return len(block)
-}
-
 func JoinTokens(tokens []token) string {
 	res := ""
 	for i, v := range tokens {
 		if i > 0 {
-			if (tokens[i-1].tokenType == Identifier || tokens[i-1].tokenType == BoolToken) && tokens[i].tokenType != CloseParen {
-				res += " " + v.value
+			if tokens[i].tokenType == Identifier {
+				if tokens[i-1].tokenType == CloseParen ||
+					tokens[i-1].tokenType == CloseBracket ||
+					tokens[i-1].tokenType == Identifier {
+					res += " " + fmt.Sprint(v.value)
+				} else {
+					res += fmt.Sprint(v.value)
+				}
+			} else if (tokens[i-1].tokenType == Identifier ||
+				tokens[i-1].tokenType == CloseParen ||
+				tokens[i-1].tokenType == StringToken) &&
+				tokens[i].tokenType != CloseParen &&
+				tokens[i].tokenType != CloseBracket {
+				res += " " + fmt.Sprint(v.value)
 			} else {
-				res += v.value
+				res += fmt.Sprint(v.value)
 			}
 		} else {
-			res += v.value
+			res += fmt.Sprint(v.value)
 		}
 	}
 	return res
-}
-
-func Flatten(ds *dataStore, block []token) []token {
-	res := block[1 : len(block)-1]
-	starts := []int{}
-	for i := 0; i < len(res); i++ {
-		if res[i].tokenType == OpenParen {
-			starts = append(starts, i)
-		} else if res[i].tokenType == CloseParen {
-			slice := res[starts[len(starts)-1] : i+1]
-			hasReturn, val := Eval(ds, slice, len(starts)+1, false)
-			RemoveScopedVars(ds, len(starts)+1)
-			if hasReturn {
-				if JoinTokens(val) == "(break)" {
-					if ds.inLoop {
-						return []token{GetToken("break")}
-					} else {
-						log.Fatal("Not in loop, cannot break")
-					}
-				} else if len(val) > 1 {
-					if val[1].value == "return" {
-						if ds.inFunc {
-							return val
-						} else {
-							log.Fatal("Not in func, cannot return")
-						}
-					}
-				}
-				start := res[:starts[len(starts)-1]]
-				end := res[i+1:]
-				tempRes := append(start, val...)
-				tempRes = append(tempRes, end...)
-				res = tempRes
-				i -= len(slice) - len(val)
-			}
-			starts = starts[:len(starts)-1]
-		} else if res[i].tokenType == Identifier {
-			if i > 0 && res[i-1].tokenType == OpenParen && res[i].value == "body" {
-				bodyStart := i - 1
-				blockEnd := GetScopeEnd(res[i:]) + i
-				body := res[bodyStart : blockEnd+1]
-				body = body[2 : len(body)-1]
-				var t token
-				t.tokenType = UnTokenized
-				t.value = JoinTokens(body)
-
-				start := res[:starts[len(starts)-1]]
-				end := res[blockEnd+1:]
-				tempRes := append(start, t)
-				tempRes = append(tempRes, end...)
-				res = tempRes
-				starts = starts[:len(starts)-1]
-				i--
-			}
-		}
-	}
-
-	return res
-}
-
-func GetArr(str string) (string, int) {
-	brackets := 0
-	for i, v := range str {
-		if v == '[' {
-			brackets++
-		} else if v == ']' {
-			brackets--
-		}
-
-		if brackets == 0 {
-			return str[:i+1], i + 1
-		}
-	}
-	return "", -1
 }
 
 func GetStrSlice(str string) (string, int) {
@@ -284,10 +167,6 @@ func GetStrSlice(str string) (string, int) {
 	return "", -1
 }
 
-func QuoteLiteralToQuote(str string) string {
-	return strings.Replace(str, "\\\"", "\"", -1)
-}
-
 func QuoteToQuoteLiteral(str string) string {
 	res := str
 	for i := 0; i < len(res); i++ {
@@ -299,44 +178,130 @@ func QuoteToQuoteLiteral(str string) string {
 					res = res[:i] + "\\" + res[i:]
 					i++
 				}
+			} else {
+				res = res[:i] + "\\" + res[i:]
+				i++
 			}
 		}
 	}
 	return res
 }
 
-func Eval(ds *dataStore, code []token, scopes int, root bool) (bool, []token) {
-	blocks := GetBlocks(code)
-	hasReturn := true
-	toReturn := []token{}
-	if len(blocks) != 1 {
-		hasReturn = false
-		for _, block := range blocks {
-			blockReturn, blockVal := Eval(ds, block, scopes+1, false)
-			if blockReturn && len(blockVal) > 0 {
-				if blockVal[0] == GetToken("break") {
-					hasReturn = true
-					toReturn = blockVal
-					break
+func GetFuncEnd(f []token) int {
+	parens := 1
+	for i := 1; i < len(f); i++ {
+		if f[i].tokenType == OpenParen {
+			parens++
+		} else if f[i].tokenType == CloseParen {
+			parens--
+		}
+		if parens == 0 {
+			return i
+		}
+	}
+	return 0
+}
+
+func PrepQuotesString(str string) string {
+	temp := str
+	startLen := len(temp)
+	diff := startLen - len(strings.ReplaceAll(temp, "\"", ""))
+	res := str
+	quoteNum := 0
+	for i := 0; i < len(res); i++ {
+		if res[i] == '"' {
+			quoteNum++
+			if i > 0 {
+				if res[i-1] == '\\' {
+					if quoteNum == 1 || quoteNum == diff {
+						res = res[:i-1] + res[i:]
+					}
+					continue
 				}
 			}
-			RemoveScopedVars(ds, scopes+1)
 		}
-	} else {
-		parts := Flatten(ds, blocks[0])
-		if root {
-			scopes++
+	}
+	return res
+}
+
+func GetDataTypeFromToken(t token) dataType {
+	var d dataType
+	switch t.tokenType {
+	case Identifier:
+		{
+			d.dataType = Ident
+			d.value = t.value.(string)
 		}
-		hasReturn, toReturn = HandleFunc(ds, scopes, parts...)
+	case StringToken:
+		{
+			d.dataType = String
+			d.value = t.value.(string)
+		}
+	case BoolToken:
+		{
+			d.dataType = Bool
+			d.value = t.value.(bool)
+		}
+	case IntToken:
+		{
+			d.dataType = Int
+			d.value = t.value.(int)
+		}
+	case FloatToken:
+		{
+			d.dataType = Float
+			d.value = t.value.(float64)
+		}
+	default:
+		{
+			log.Fatal("Cannot infer datatype from: ", t)
+		}
+	}
+	return d
+}
+
+func EvalFunc(ds *dataStore, scopes int, info []dataType) (bool, []dataType) {
+	return ds.builtins[info[0].value.(string)](ds, scopes, info[1:])
+}
+
+func Eval(ds *dataStore, code []token, scopes int, root bool) (bool, []dataType) {
+	funcCall := [][]dataType{}
+	funcNames := []string{}
+	hasReturn := true
+	toReturn := []dataType{}
+	for i := 0; i < len(code); i++ {
+		if code[i].tokenType == OpenParen {
+			funcCall = append(funcCall, []dataType{})
+			funcNames = append(funcNames, code[i+1].value.(string))
+		} else if code[i].tokenType == CloseParen {
+			funcReturns, val := EvalFunc(ds, len(funcCall)+scopes, funcCall[len(funcCall)-1])
+			RemoveScopedVars(ds, len(funcCall)+scopes)
+			funcCall = funcCall[:len(funcCall)-1]
+			funcNames = funcNames[:len(funcNames)-1]
+			if len(funcCall) > 0 && funcReturns {
+				funcCall[len(funcCall)-1] = append(funcCall[len(funcCall)-1], val...)
+			}
+		} else if code[i].tokenType == OpenBracket {
+			arr, index := GetArr(code[i:])
+			funcCall[len(funcCall)-1] = append(funcCall[len(funcCall)-1], arr)
+			i += index + 1
+		} else if code[i].tokenType == Identifier ||
+			code[i].tokenType == StringToken ||
+			code[i].tokenType == IntToken ||
+			code[i].tokenType == BoolToken ||
+			code[i].tokenType == FloatToken {
+			funcCall[len(funcCall)-1] = append(funcCall[len(funcCall)-1], GetDataTypeFromToken(code[i]))
+		}
 	}
 	return hasReturn, toReturn
 }
+
+var benchmark bool = false
 
 func main() {
 	args := os.Args[1:]
 	scanner := bufio.NewScanner(os.Stdin)
 	fileName := ""
-	benchmark := false
 	ds := new(dataStore)
 	ds.vars = make(map[string][]variable)
 	ds.funcs = make(map[string][]function)
@@ -344,7 +309,7 @@ func main() {
 	ds.scopedRedef = [][]string{}
 	ds.scopedFuncs = [][]string{}
 	ds.scopedRedefFuncs = [][]string{}
-	ds.builtins = make(map[string]func(*dataStore, int, []token) (bool, []token))
+	ds.builtins = make(map[string]func(*dataStore, int, []dataType) (bool, []dataType))
 	ds.inFunc = false
 	ds.inLoop = false
 	InitBuiltins(ds)
@@ -387,12 +352,21 @@ func main() {
 	dat, err := os.ReadFile(fileName)
 	if benchmark {
 		fmt.Println("["+fileName+"] read in", time.Since(fileStart))
+	}
+	if err != nil {
+		log.Fatal(err)
+	}
+	start := time.Now()
+	tokensStart := time.Now()
+	tokens := Tokenize(string(dat))
+	if benchmark {
+		tokenEnd := time.Since(tokensStart)
+		fmt.Println("Tokenized in", tokenEnd)
 		fmt.Println()
 	}
-	check(err)
-	start := time.Now()
-	Eval(ds, Tokenize(string(dat)), 0, true)
+	Eval(ds, tokens, 0, true)
 	if benchmark {
-		fmt.Println("\nFinished in", time.Since(start))
+		evalEnd := time.Since(start)
+		fmt.Println("\nFinished in", evalEnd)
 	}
 }

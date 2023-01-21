@@ -1,2 +1,5 @@
-(var h [1 2 3 4])
-(print (get h 1))
+(var h [])
+(loop 10000 i (body
+	(append h i)
+))
+(print h)

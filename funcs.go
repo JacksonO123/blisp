@@ -360,104 +360,104 @@ func GetValueFromList(ds *dataStore, list dataType, index dataType) dataType {
 	return arr[indx]
 }
 
-func LoopListIterator(ds *dataStore, scopes int, list []token, iteratorName token, body []token) {
-	// var arr []token
-	// if len(list) == 1 {
-	// 	arr = GetDsValue(ds, list[0])
-	// } else {
-	// 	arr = list
-	// }
-	// made := false
-	// for _, v := range arr {
-	// 	if !made {
-	// 		MakeVar(ds, scopes+1, iteratorName, v)
-	// 	} else {
-	// 		SetVar(ds, iteratorName, v)
-	// 	}
-	// 	hasReturn, val := Eval(ds, body, scopes, false)
-	// 	if hasReturn {
-	// 		if val[0] == GetToken("break") {
-	// 			break
-	// 		}
-	// 	}
-	// }
+func LoopListIterator(ds *dataStore, scopes int, list dataType, iteratorName dataType, body dataType) {
+	arr := list
+	if arr.dataType == Ident {
+		arr = GetDsValue(ds, list)
+	}
+	made := false
+	for _, v := range arr.value.([]dataType) {
+		if !made {
+			MakeVar(ds, scopes+1, iteratorName.value.(string), v)
+		} else {
+			SetVar(ds, iteratorName.value.(string), v)
+		}
+		made = true
+		Eval(ds, body.value.([]token), scopes, false)
+		// if hasReturn {
+		// 	if val[0] == GetToken("break") {
+		// 		break
+		// 	}
+		// }
+	}
 }
 
-func LoopListIndexIterator(ds *dataStore, scopes int, list []token, indexIterator token, iteratorName token, body []token) {
-	// var arr []token
-	// if len(list) == 1 {
-	// 	arr = GetDsValue(ds, list[0])
-	// } else {
-	// 	arr = list
-	// }
-	// made := false
-	// for i, v := range arr {
-	// 	if !made {
-	// 		MakeVar(ds, scopes+1, iteratorName, v)
-	// 		MakeVar(ds, scopes+1, indexIterator, GetToken(fmt.Sprint(i)))
-	// 	} else {
-	// 		SetVar(ds, iteratorName, v)
-	// 		SetVar(ds, indexIterator, GetToken(fmt.Sprint(i)))
-	// 	}
-	// 	hasReturn, val := Eval(ds, body, scopes, false)
-	// 	if hasReturn {
-	// 		if val[0] == GetToken("break") {
-	// 			break
-	// 		}
-	// 	}
-	// }
+func LoopListIndexIterator(ds *dataStore, scopes int, list dataType, indexIterator dataType, iteratorName dataType, body dataType) {
+	arr := list
+	if arr.dataType == Ident {
+		arr = GetDsValue(ds, list)
+	}
+	made := false
+	for i, v := range arr.value.([]dataType) {
+		if !made {
+			MakeVar(ds, scopes+1, iteratorName.value.(string), v)
+			MakeVar(ds, scopes+1, indexIterator.value.(string), dataType{dataType: Int, value: i})
+		} else {
+			SetVar(ds, iteratorName.value.(string), v)
+			SetVar(ds, indexIterator.value.(string), dataType{dataType: Int, value: i})
+		}
+		made = true
+		Eval(ds, body.value.([]token), scopes, false)
+		// if hasReturn {
+		// 	if val[0] == GetToken("break") {
+		// 		break
+		// 	}
+		// }
+	}
 }
 
-func LoopTo(ds *dataStore, scopes int, max token, indexIterator token, body []token) {
-	// maxNum := int(GetFloat64FromToken(max))
-	// made := false
-	// for i := 0; i < maxNum; i++ {
-	// 	if !made {
-	// 		MakeVar(ds, scopes+1, indexIterator, GetToken(fmt.Sprint(i)))
-	// 	} else {
-	// 		SetVar(ds, indexIterator, GetToken(fmt.Sprint(i)))
-	// 	}
-	// 	hasReturn, val := Eval(ds, body, scopes, false)
-	// 	if hasReturn {
-	// 		if val[0] == GetToken("break") {
-	// 			break
-	// 		}
-	// 	}
-	// }
+func LoopTo(ds *dataStore, scopes int, max dataType, indexIterator dataType, body dataType) {
+	maxNum := max.value.(int)
+	made := false
+	for i := 0; i < maxNum; i++ {
+		if !made {
+			MakeVar(ds, scopes+1, indexIterator.value.(string), dataType{dataType: Int, value: i})
+		} else {
+			SetVar(ds, indexIterator.value.(string), dataType{dataType: Int, value: i})
+		}
+		made = true
+		Eval(ds, body.value.([]token), scopes, false)
+		// if hasReturn {
+		// 	if val[0] == GetToken("break") {
+		// 		break
+		// 	}
+		// }
+	}
 }
 
-func LoopFromTo(ds *dataStore, scopes int, start token, max token, indexIterator token, body []token) {
-	// startNum := int(GetFloat64FromToken(start))
-	// maxNum := int(GetFloat64FromToken(max))
-	// made := false
-	// i := startNum
-	// next := func() {
-	// 	if startNum <= maxNum {
-	// 		i++
-	// 	} else {
-	// 		i--
-	// 	}
-	// }
-	// comp := func() bool {
-	// 	if startNum <= maxNum {
-	// 		return i < maxNum
-	// 	} else {
-	// 		return i > maxNum
-	// 	}
-	// }
-	// for ; comp(); next() {
-	// 	if !made {
-	// 		MakeVar(ds, scopes+1, indexIterator, GetToken(fmt.Sprint(i)))
-	// 	} else {
-	// 		SetVar(ds, indexIterator, GetToken(fmt.Sprint(i)))
-	// 	}
-	// 	hasReturn, val := Eval(ds, body, scopes, false)
-	// 	if hasReturn {
-	// 		if val[0] == GetToken("break") {
-	// 			break
-	// 		}
-	// 	}
-	// }
+func LoopFromTo(ds *dataStore, scopes int, start dataType, max dataType, indexIterator dataType, body dataType) {
+	startNum := start.value.(int)
+	maxNum := max.value.(int)
+	made := false
+	i := startNum
+	next := func() {
+		if startNum <= maxNum {
+			i++
+		} else {
+			i--
+		}
+	}
+	comp := func() bool {
+		if startNum <= maxNum {
+			return i < maxNum
+		} else {
+			return i > maxNum
+		}
+	}
+	for ; comp(); next() {
+		if !made {
+			MakeVar(ds, scopes+1, indexIterator.value.(string), dataType{dataType: Int, value: i})
+		} else {
+			SetVar(ds, indexIterator.value.(string), dataType{dataType: Int, value: i})
+		}
+		made = true
+		Eval(ds, body.value.([]token), scopes, false)
+		// if hasReturn {
+		// 	if val[0] == GetToken("break") {
+		// 		break
+		// 	}
+		// }
+	}
 }
 
 func Eq(ds *dataStore, params ...token) bool {
@@ -470,29 +470,35 @@ func Eq(ds *dataStore, params ...token) bool {
 	return false
 }
 
-func If(ds *dataStore, scopes int, params ...token) (bool, []token) {
-	// hasReturn := true
-	// toReturn := []token{}
-	// info := GetDsValue(ds, params[0])
-	// if info.variableType == Bool {
-	// 	if val, err := strconv.ParseBool(info.value); err == nil && val {
-	// 		hasReturn, toReturn = Eval(ds, Tokenize(params[1].value), scopes, false)
-	// 	} else if len(params) == 3 {
-	// 		hasReturn, toReturn = Eval(ds, Tokenize(params[2].value), scopes, false)
-	// 	}
-	// } else {
-	// 	log.Fatal("Error in \"if\", expected type: \"Bool\" found ", info.variableType)
-	// }
-	// return hasReturn, toReturn
-	return false, []token{}
+func If(ds *dataStore, scopes int, params ...dataType) (bool, []dataType) {
+	hasReturn := true
+	toReturn := []dataType{}
+	info := params[0]
+	if info.dataType == Ident {
+		info = GetDsValue(ds, params[0])
+	}
+	if info.dataType == Bool {
+		val := info.value.(bool)
+		if val {
+			hasReturn, toReturn = Eval(ds, params[1].value.([]token), scopes, false)
+		} else if len(params) == 3 {
+			hasReturn, toReturn = Eval(ds, params[2].value.([]token), scopes, false)
+		}
+	} else {
+		log.Fatal("Error in \"if\", expected type: \"Bool\" found ", dataTypes[info.dataType])
+	}
+	return hasReturn, toReturn
 }
 
-func AppendToList(list token, toAppend token) token {
-	// val := list.value
-	// tokens := Tokenize(val[1 : len(val)-1])
-	// res := append(tokens, toAppend)
-	// return GetToken(JoinList(res))
-	return token{}
+func AppendToList(ds *dataStore, list []dataType, data ...dataType) []dataType {
+	for _, v := range data {
+		if v.dataType == Ident {
+			list = append(list, GetDsValue(ds, v))
+		} else {
+			list = append(list, v)
+		}
+	}
+	return list
 }
 
 func PrependToList(list token, toPrepend token) token {
@@ -503,27 +509,27 @@ func PrependToList(list token, toPrepend token) token {
 	return token{}
 }
 
-func ListFunc(ds *dataStore, f func(list token, val token) token, params ...token) token {
-	// info := GetDsValue(ds, params[0])
-	// if info.variableType == List {
-	// 	list := GetToken(info.value)
-	// 	for _, v := range params[1:] {
-	// 		toAppend := GetDsValue(ds, v)
-	// 		if toAppend.variableType == List {
-	// 			parts := SplitList(toAppend.value)
-	// 			for i := 0; i < len(parts); i++ {
-	// 				list = f(list, parts[i])
-	// 			}
-	// 		} else {
-	// 			list = f(list, GetToken(toAppend.value))
-	// 		}
-	// 	}
-	// 	return list
-	// } else {
-	// 	log.Fatal("Error in \"append\", expected type \"List\" found ", info.variableType)
-	// }
-	// return GetToken("[]")
-	return token{}
+func ListFunc(ds *dataStore, f func(ds *dataStore, list []dataType, val ...dataType) []dataType, params ...dataType) dataType {
+	isIdent := false
+	name := ""
+	list := params[0]
+	if list.dataType == Ident {
+		isIdent = true
+		name = list.value.(string)
+		list = GetDsValue(ds, list)
+	}
+	if list.dataType == List {
+		val := list.value.([]dataType)
+		val = f(ds, val, params[1:]...)
+		list.value = val
+		if isIdent {
+			SetVar(ds, name, list)
+		}
+		return list
+	} else {
+		log.Fatal("Error in \"append\", expected type \"List\" found ", dataTypes[list.dataType])
+	}
+	return dataType{dataType: Nil, value: nil}
 }
 
 func Concat(ds *dataStore, params ...token) string {

@@ -33,6 +33,7 @@ const (
 	Ident
 	Func
 	Nil
+	Tokens
 )
 
 type dataType struct {
@@ -187,19 +188,24 @@ func QuoteToQuoteLiteral(str string) string {
 	return res
 }
 
-func GetFuncEnd(f []token) int {
+func GetFuncEnd(f []token) ([]token, int) {
 	parens := 1
+	res := []token{{tokenType: OpenParen, value: "("}}
 	for i := 1; i < len(f); i++ {
 		if f[i].tokenType == OpenParen {
 			parens++
+			res = append(res, f[i])
 		} else if f[i].tokenType == CloseParen {
 			parens--
+			res = append(res, f[i])
+		} else {
+			res = append(res, f[i])
 		}
 		if parens == 0 {
-			return i
+			return res, i
 		}
 	}
-	return 0
+	return []token{}, 0
 }
 
 func PrepQuotesString(str string) string {
@@ -270,10 +276,21 @@ func Eval(ds *dataStore, code []token, scopes int, root bool) (bool, []dataType)
 	hasReturn := true
 	toReturn := []dataType{}
 	for i := 0; i < len(code); i++ {
+		if len(funcNames) > 0 && funcNames[len(funcNames)-1] == "body" {
+			funcCall = funcCall[:len(funcCall)-1]
+			funcNames = funcNames[:len(funcNames)-1]
+			i++
+			bodyDataTokens, index := GetFuncEnd(code[i:])
+			i += index + 2
+			funcCall[len(funcCall)-1] = append(funcCall[len(funcCall)-1], dataType{dataType: Tokens, value: bodyDataTokens})
+		}
 		if code[i].tokenType == OpenParen {
 			funcCall = append(funcCall, []dataType{})
 			funcNames = append(funcNames, code[i+1].value.(string))
 		} else if code[i].tokenType == CloseParen {
+			if len(funcCall) == 0 {
+				continue
+			}
 			funcReturns, val := EvalFunc(ds, len(funcCall)+scopes, funcCall[len(funcCall)-1])
 			RemoveScopedVars(ds, len(funcCall)+scopes)
 			funcCall = funcCall[:len(funcCall)-1]

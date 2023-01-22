@@ -159,7 +159,8 @@ func InitBuiltins(ds *dataStore) {
 	}
 	ds.builtins["if"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
 		if len(params) == 2 || len(params) == 3 {
-			return If(ds, scopes, params...)
+			v1, v2 := If(ds, scopes, params...)
+			return v1, v2
 		} else {
 			log.Fatal("Invalid number of parameters to \"if\". Expected 2 found ", len(params))
 		}
@@ -224,12 +225,12 @@ func InitBuiltins(ds *dataStore) {
 		}
 		return true, []dataType{{dataType: Int, value: Len(ds, params[0])}}
 	}
-	// ds.builtins["and"] = func(ds *dataStore, scopes int, params []token) (bool, []token) {
-	// 	if len(params) == 0 {
-	// 		log.Fatal("Invalid number of parameters to \"and\". Expected 1 or more found ", len(params))
-	// 	}
-	// 	return true, [][]token{GetToken(fmt.Sprint(And(ds, params...)))}
-	// }
+	ds.builtins["and"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		if len(params) == 0 {
+			log.Fatal("Invalid number of parameters to \"and\". Expected 1 or more found ", len(params))
+		}
+		return true, []dataType{{dataType: Bool, value: And(ds, params...)}}
+	}
 	// ds.builtins["or"] = func(ds *dataStore, scopes int, params []token) (bool, []token) {
 	// 	if len(params) == 0 {
 	// 		log.Fatal("Invalid number of parameters to \"or\". Expected 1 or more found ", len(params))

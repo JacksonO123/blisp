@@ -131,7 +131,7 @@ func Tokenize(code string) []token {
 				}
 			}
 			t.value = string(code[i])
-			if len(strings.TrimSpace(string(temp))) > 0 {
+			if len(temp) > 0 {
 				t := GetToken(string(temp))
 				res = append(res, t)
 			}
@@ -139,7 +139,7 @@ func Tokenize(code string) []token {
 			res = append(res, GetToken(string(code[i])))
 		}
 	}
-	if len(strings.TrimSpace(string(temp))) > 0 {
+	if len(string(temp)) > 0 {
 		t := GetToken(string(temp))
 		res = append(res, t)
 	}

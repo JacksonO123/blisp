@@ -274,6 +274,7 @@ func GetDataTypeFromToken(t token) dataType {
 }
 
 func EvalFunc(ds *dataStore, scopes int, info []dataType) (bool, []dataType) {
+	ds.inFunc = true
 	if f, ok := ds.builtins[info[0].value.(string)]; ok {
 		return f(ds, scopes, info[1:])
 	} else {

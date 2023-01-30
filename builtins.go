@@ -250,14 +250,14 @@ func InitBuiltins(ds *dataStore) {
 		MakeFunction(ds, scopes, params[0], params[1:])
 		return true, []dataType{{dataType: String, value: "\"(setting function " + params[0].value.(string) + " with " + GetStrValue(dataType{dataType: List, value: params[1:]}) + ")\""}}
 	}
-	// ds.builtins["return"] = func(ds *dataStore, scopes int, params []token) (bool, []token) {
-	// 	if !ds.inFunc {
-	// 		log.Fatal("Not in func, cannot return")
-	// 	}
-	// 	vals := [][]token{}
-	// 	// for _, v := range params {
-	// 	// 	vals = append(vals, GetValue(ds, v).value...)
-	// 	// }
-	// 	return true, vals
-	// }
+	ds.builtins["return"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		if !ds.inFunc {
+			log.Fatal("Not in func, cannot return")
+		}
+		vals := []dataType{}
+		for _, v := range params {
+			vals = append(vals, GetDsValue(ds, v))
+		}
+		return true, vals
+	}
 }

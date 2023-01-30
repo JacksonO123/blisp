@@ -98,7 +98,7 @@ func GetString(str string) (string, int) {
 
 func Tokenize(code string) []token {
 	res := []token{}
-  temp := make([]rune, 0, len(code)/6)
+	temp := make([]rune, 0, len(code)/6)
 	for i := 0; i < len(code); i++ {
 		if code[i] == '"' {
 			var t token

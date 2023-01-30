@@ -1,13 +1,9 @@
-(func p x (body
-	(loop 10 i (body
-		(print i)
-		(if (eq i 5) (body
-			(print "i is 5")
-			(return (+ x 1))
-		) (body
-			(print "i is not 5")
-		))
+(func test max (body
+	(var res [])
+	(loop max i (body
+		(append res i)
 	))
+	(return res)
 ))
 
-(print (concat (p 1) " res"))
+(print (test 1000))

@@ -6,4 +6,6 @@
 	(return res)
 ))
 
-(print (test 1000))
+(print "Enter number")
+(var h (parse (scan-line)))
+(print (test h))

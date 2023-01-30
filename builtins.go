@@ -3,7 +3,10 @@ package main
 import (
 	"fmt"
 	"log"
+	"math"
 	"os"
+
+	"github.com/valyala/fastjson/fastfloat"
 )
 
 func InitBuiltins(ds *dataStore) {
@@ -275,5 +278,26 @@ func InitBuiltins(ds *dataStore) {
 			vals = append(vals, GetDsValue(ds, v))
 		}
 		return true, []dataType{{dataType: ReturnVals, value: vals}}
+	}
+	ds.builtins["parse"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		res := []dataType{}
+		for _, v := range params {
+			if v.dataType == String {
+				str := v.value.(string)
+				str = str[1 : len(str)-1]
+				val, err := fastfloat.Parse(str)
+				if err != nil {
+					log.Fatal(err)
+				}
+				if math.Floor(val) == val {
+					res = append(res, dataType{dataType: Int, value: int(val)})
+				} else {
+					res = append(res, dataType{dataType: Float, value: val})
+				}
+			} else {
+				log.Fatal("Cannot parse ", dataTypes[v.dataType])
+			}
+		}
+		return true, res
 	}
 }

@@ -416,7 +416,7 @@ func GetValueFromList(ds *dataStore, list dataType, index dataType) dataType {
 	return arr[indx]
 }
 
-func LoopListIterator(ds *dataStore, scopes int, list dataType, iteratorName dataType, body dataType) {
+func LoopListIterator(ds *dataStore, scopes int, list dataType, iteratorName dataType, body dataType) (bool, []dataType) {
 	arr := list
 	if arr.dataType == Ident {
 		arr = GetDsValue(ds, list)
@@ -430,13 +430,17 @@ func LoopListIterator(ds *dataStore, scopes int, list dataType, iteratorName dat
 		}
 		made = true
 		hasReturn, val := Eval(ds, body.value.([]token), scopes, false)
-		if hasReturn && len(val) > 0 && val[0].dataType == BreakVals {
+		if hasReturn && len(val) > 0 && (val[0].dataType == BreakVals || val[0].dataType == ReturnVals) {
+			if val[0].dataType == ReturnVals {
+				return true, []dataType{val[0]}
+			}
 			break
 		}
 	}
+	return false, []dataType{}
 }
 
-func LoopListIndexIterator(ds *dataStore, scopes int, list dataType, indexIterator dataType, iteratorName dataType, body dataType) {
+func LoopListIndexIterator(ds *dataStore, scopes int, list dataType, indexIterator dataType, iteratorName dataType, body dataType) (bool, []dataType) {
 	arr := list
 	if arr.dataType == Ident {
 		arr = GetDsValue(ds, list)
@@ -452,13 +456,17 @@ func LoopListIndexIterator(ds *dataStore, scopes int, list dataType, indexIterat
 		}
 		made = true
 		hasReturn, val := Eval(ds, body.value.([]token), scopes, false)
-		if hasReturn && len(val) > 0 && val[0].dataType == BreakVals {
+		if hasReturn && len(val) > 0 && (val[0].dataType == BreakVals || val[0].dataType == ReturnVals) {
+			if val[0].dataType == ReturnVals {
+				return true, []dataType{val[0]}
+			}
 			break
 		}
 	}
+	return false, []dataType{}
 }
 
-func LoopTo(ds *dataStore, scopes int, max dataType, indexIterator dataType, body dataType) {
+func LoopTo(ds *dataStore, scopes int, max dataType, indexIterator dataType, body dataType) (bool, []dataType) {
 	maxNum := max.value.(int)
 	made := false
 	for i := 0; i < maxNum; i++ {
@@ -469,13 +477,17 @@ func LoopTo(ds *dataStore, scopes int, max dataType, indexIterator dataType, bod
 		}
 		made = true
 		hasReturn, val := Eval(ds, body.value.([]token), scopes, false)
-		if hasReturn && len(val) > 0 && val[0].dataType == BreakVals {
+		if hasReturn && len(val) > 0 && (val[0].dataType == BreakVals || val[0].dataType == ReturnVals) {
+			if val[0].dataType == ReturnVals {
+				return true, []dataType{val[0]}
+			}
 			break
 		}
 	}
+	return false, []dataType{}
 }
 
-func LoopFromTo(ds *dataStore, scopes int, start dataType, max dataType, indexIterator dataType, body dataType) {
+func LoopFromTo(ds *dataStore, scopes int, start dataType, max dataType, indexIterator dataType, body dataType) (bool, []dataType) {
 	startNum := start.value.(int)
 	maxNum := max.value.(int)
 	made := false
@@ -502,10 +514,14 @@ func LoopFromTo(ds *dataStore, scopes int, start dataType, max dataType, indexIt
 		}
 		made = true
 		hasReturn, val := Eval(ds, body.value.([]token), scopes, false)
-		if hasReturn && len(val) > 0 && val[0].dataType == BreakVals {
+		if hasReturn && len(val) > 0 && (val[0].dataType == BreakVals || val[0].dataType == ReturnVals) {
+			if val[0].dataType == ReturnVals {
+				return true, []dataType{val[0]}
+			}
 			break
 		}
 	}
+	return false, []dataType{}
 }
 
 func Eq(ds *dataStore, params ...dataType) bool {
@@ -731,7 +747,6 @@ func Not(ds *dataStore, val dataType) bool {
 }
 
 func MakeFunction(ds *dataStore, scopes int, name dataType, data []dataType) {
-	fmt.Println(name)
 	if name.dataType != Ident {
 		log.Fatal("Function named " + fmt.Sprint(name.value) + " must be a variable name")
 		return
@@ -750,7 +765,6 @@ func MakeFunction(ds *dataStore, scopes int, name dataType, data []dataType) {
 	}
 
 	f := function{name: nameStr, body: data[len(data)-1].value.([]token), params: data[0 : len(data)-1]}
-	fmt.Println(f.body)
 
 	ds.funcs[nameStr] = append(ds.funcs[nameStr], f)
 	for len(ds.scopedFuncs) < scopes {

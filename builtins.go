@@ -108,13 +108,21 @@ func InitBuiltins(ds *dataStore) {
 				val = GetDsValue(ds, val)
 			}
 			if val.dataType == List {
-				LoopListIterator(ds, scopes, val, params[1], params[2])
+				hasReturn, res := LoopListIterator(ds, scopes, val, params[1], params[2])
 				ds.inLoop = false
-				return true, []dataType{{dataType: String, value: "\"(looping over " + GetStrValue(val) + ")\""}}
+				if hasReturn {
+					return hasReturn, res
+				} else {
+					return true, []dataType{{dataType: String, value: "\"(looping over " + GetStrValue(val) + ")\""}}
+				}
 			} else if val.dataType == Int {
-				LoopTo(ds, scopes, val, params[1], params[2])
+				hasReturn, res := LoopTo(ds, scopes, val, params[1], params[2])
 				ds.inLoop = false
-				return true, []dataType{{dataType: String, value: "\"(looping over " + GetStrValue(val) + ")\""}}
+				if hasReturn {
+					return hasReturn, res
+				} else {
+					return true, []dataType{{dataType: String, value: "\"(looping over " + GetStrValue(val) + ")\""}}
+				}
 			} else {
 				log.Fatal("Expecting first param to be \"List\" or \"Int\", got:", dataTypes[val.dataType])
 			}
@@ -125,13 +133,21 @@ func InitBuiltins(ds *dataStore) {
 				val = GetDsValue(ds, val)
 			}
 			if val.dataType == List {
-				LoopListIndexIterator(ds, scopes, val, params[1], params[2], params[3])
+				hasReturn, res := LoopListIndexIterator(ds, scopes, val, params[1], params[2], params[3])
 				ds.inLoop = false
-				return true, []dataType{{dataType: String, value: "\"(looping over " + GetStrValue(val) + ")\""}}
+				if hasReturn {
+					return hasReturn, res
+				} else {
+					return true, []dataType{{dataType: String, value: "\"(looping over " + GetStrValue(val) + ")\""}}
+				}
 			} else if val.dataType == Int {
-				LoopFromTo(ds, scopes, val, params[1], params[2], params[3])
+				hasReturn, res := LoopFromTo(ds, scopes, val, params[1], params[2], params[3])
 				ds.inLoop = false
-				return true, []dataType{{dataType: String, value: "\"(looping from " + GetStrValue(val) + " to " + GetStrValue(params[1]) + ")\""}}
+				if hasReturn {
+					return hasReturn, res
+				} else {
+					return true, []dataType{{dataType: String, value: "\"(looping from " + GetStrValue(val) + " to " + GetStrValue(params[1]) + ")\""}}
+				}
 			} else {
 				log.Fatal("Expecting first param to be list, got: ", dataTypes[val.dataType])
 			}
@@ -258,6 +274,6 @@ func InitBuiltins(ds *dataStore) {
 		for _, v := range params {
 			vals = append(vals, GetDsValue(ds, v))
 		}
-		return true, vals
+		return true, []dataType{{dataType: ReturnVals, value: vals}}
 	}
 }

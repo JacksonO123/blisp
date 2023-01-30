@@ -273,12 +273,14 @@ func GetDataTypeFromToken(t token) dataType {
 	return d
 }
 
-func EvalFunc(ds *dataStore, scopes int, info []dataType) (bool, []dataType) {
+func EvalFunc(ds *dataStore, scopes int, info []dataType) (bool, bool, []dataType) {
 	ds.inFunc = true
 	if f, ok := ds.builtins[info[0].value.(string)]; ok {
-		return f(ds, scopes, info[1:])
+		h, v := f(ds, scopes, info[1:])
+		return false, h, v
 	} else {
-		return CallFunc(ds, scopes, info[0].value.(string), info[1:])
+		h, v := CallFunc(ds, scopes+1, info[0].value.(string), info[1:])
+		return true, h, v
 	}
 }
 
@@ -305,10 +307,14 @@ func Eval(ds *dataStore, code []token, scopes int, root bool) (bool, []dataType)
 			if len(funcCall) == 0 {
 				continue
 			}
-			funcReturns, val := EvalFunc(ds, len(funcCall)+scopes, funcCall[len(funcCall)-1])
+			fromCustom, funcReturns, val := EvalFunc(ds, len(funcCall)+scopes, funcCall[len(funcCall)-1])
 			RemoveScopedVars(ds, len(funcCall)+scopes)
-			if funcReturns && len(val) > 0 && val[0].dataType == BreakVals {
-				return true, []dataType{val[0]}
+			if funcReturns && len(val) > 0 && (val[0].dataType == BreakVals || val[0].dataType == ReturnVals) {
+				if !fromCustom {
+					return funcReturns, val
+				} else {
+					val = val[0].value.([]dataType)
+				}
 			}
 			funcCall = funcCall[:len(funcCall)-1]
 			funcNames = funcNames[:len(funcNames)-1]
@@ -339,7 +345,6 @@ func Eval(ds *dataStore, code []token, scopes int, root bool) (bool, []dataType)
 			toReturn = []dataType{}
 		}
 	}
-	fmt.Println(ds.funcs)
 	return hasReturn, toReturn
 }
 

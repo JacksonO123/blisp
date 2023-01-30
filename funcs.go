@@ -82,7 +82,7 @@ func GetArrStr(data dataType) dataType {
 
 func PrintArr(data dataType) {
 	arr := data.value.([]dataType)
-	printAt := 210
+	printAt := 224
 	items := 0
 	toPrint := "["
 	for i, v := range arr {
@@ -422,7 +422,6 @@ func LoopListIterator(ds *dataStore, scopes int, list dataType, iteratorName dat
 		arr = GetDsValue(ds, list)
 	}
 	made := false
-	info := BuildFuncCall(ds, body.value.([]token), scopes)
 	for _, v := range arr.value.([]dataType) {
 		if !made {
 			MakeVar(ds, scopes+1, iteratorName.value.(string), v)
@@ -430,12 +429,10 @@ func LoopListIterator(ds *dataStore, scopes int, list dataType, iteratorName dat
 			SetVar(ds, iteratorName.value.(string), v)
 		}
 		made = true
-		ds.builtins[info[0].value.(string)](ds, scopes, info[1:])
-		// if hasReturn {
-		// 	if val[0] == GetToken("break") {
-		// 		break
-		// 	}
-		// }
+		hasReturn, val := Eval(ds, body.value.([]token), scopes, false)
+		if hasReturn && len(val) > 0 && val[0].dataType == BreakVals {
+			break
+		}
 	}
 }
 
@@ -445,7 +442,6 @@ func LoopListIndexIterator(ds *dataStore, scopes int, list dataType, indexIterat
 		arr = GetDsValue(ds, list)
 	}
 	made := false
-	info := BuildFuncCall(ds, body.value.([]token), scopes)
 	for i, v := range arr.value.([]dataType) {
 		if !made {
 			MakeVar(ds, scopes+1, iteratorName.value.(string), v)
@@ -455,19 +451,16 @@ func LoopListIndexIterator(ds *dataStore, scopes int, list dataType, indexIterat
 			SetVar(ds, indexIterator.value.(string), dataType{dataType: Int, value: i})
 		}
 		made = true
-		ds.builtins[info[0].value.(string)](ds, scopes, info[1:])
-		// if hasReturn {
-		// 	if val[0] == GetToken("break") {
-		// 		break
-		// 	}
-		// }
+		hasReturn, val := Eval(ds, body.value.([]token), scopes, false)
+		if hasReturn && len(val) > 0 && val[0].dataType == BreakVals {
+			break
+		}
 	}
 }
 
 func LoopTo(ds *dataStore, scopes int, max dataType, indexIterator dataType, body dataType) {
 	maxNum := max.value.(int)
 	made := false
-	info := BuildFuncCall(ds, body.value.([]token), scopes)
 	for i := 0; i < maxNum; i++ {
 		if !made {
 			MakeVar(ds, scopes+1, indexIterator.value.(string), dataType{dataType: Int, value: i})
@@ -475,12 +468,10 @@ func LoopTo(ds *dataStore, scopes int, max dataType, indexIterator dataType, bod
 			SetVar(ds, indexIterator.value.(string), dataType{dataType: Int, value: i})
 		}
 		made = true
-		ds.builtins[info[0].value.(string)](ds, scopes, info[1:])
-		// if hasReturn {
-		// 	if val[0] == GetToken("break") {
-		// 		break
-		// 	}
-		// }
+		hasReturn, val := Eval(ds, body.value.([]token), scopes, false)
+		if hasReturn && len(val) > 0 && val[0].dataType == BreakVals {
+			break
+		}
 	}
 }
 
@@ -503,7 +494,6 @@ func LoopFromTo(ds *dataStore, scopes int, start dataType, max dataType, indexIt
 			return i > maxNum
 		}
 	}
-	info := BuildFuncCall(ds, body.value.([]token), scopes)
 	for ; comp(); next() {
 		if !made {
 			MakeVar(ds, scopes+1, indexIterator.value.(string), dataType{dataType: Int, value: i})
@@ -511,12 +501,10 @@ func LoopFromTo(ds *dataStore, scopes int, start dataType, max dataType, indexIt
 			SetVar(ds, indexIterator.value.(string), dataType{dataType: Int, value: i})
 		}
 		made = true
-		ds.builtins[info[0].value.(string)](ds, scopes, info[1:])
-		// if hasReturn {
-		// 	if val[0] == GetToken("break") {
-		// 		break
-		// 	}
-		// }
+		hasReturn, val := Eval(ds, body.value.([]token), scopes, false)
+		if hasReturn && len(val) > 0 && val[0].dataType == BreakVals {
+			break
+		}
 	}
 }
 
@@ -717,82 +705,73 @@ func SetIndex(ds *dataStore, list dataType, index int, value dataType) (bool, da
 	}
 }
 
-func Or(ds *dataStore, params ...token) bool {
-	// res := false
-	// for i, v := range params {
-	// 	info := GetDsValue(ds, v)
-	// 	if info.variableType != Bool {
-	// 		log.Fatal("Error in \"or\", expected \"Bool\" found ", info.variableType)
-	// 	}
-	// 	val, err := strconv.ParseBool(info.value)
-	// 	if i == 0 {
-	// 		if err == nil {
-	// 			res = val
-	// 		}
-	// 	} else {
-	// 		res = res || val
-	// 	}
-	// }
-	// return res
+func Or(ds *dataStore, params ...dataType) bool {
+	for _, v := range params {
+		if v.dataType == Ident {
+			v = GetDsValue(ds, v)
+		}
+		if v.dataType != Bool {
+			log.Fatal("Error in \"or\", expected \"Bool\" found ", dataTypes[v.dataType])
+		}
+		if v.value.(bool) {
+			return true
+		}
+	}
 	return false
 }
 
-func Not(ds *dataStore, val token) bool {
-	// info := GetDsValue(ds, val)
-	// if info.variableType != Bool {
-	// 	log.Fatal("Error in \"not\", expected \"Bool\" found ", info.variableType)
-	// }
-	// v, err := strconv.ParseBool(info.value)
-	// if err == nil {
-	// 	return !v
-	// }
-	// return true
-	return false
+func Not(ds *dataStore, val dataType) bool {
+	if val.dataType == Ident {
+		val = GetDsValue(ds, val)
+	}
+	if val.dataType != Bool {
+		log.Fatal("Error in \"not\", expected \"Bool\" found ", dataTypes[val.dataType])
+	}
+	return !val.value.(bool)
 }
 
-func MakeFunction(ds *dataStore, scopes int, params ...token) {
-	// make function var
+func MakeFunction(ds *dataStore, scopes int, name dataType, data []dataType) {
+	fmt.Println(name)
+	if name.dataType != Ident {
+		log.Fatal("Function named " + fmt.Sprint(name.value) + " must be a variable name")
+		return
+	}
 
-	// if scopes < len(ds.scopedFuncs) && StrArrIncludes(ds.scopedFuncs[scopes], f.name) {
-	// 	log.Fatal("Function already initialized: " + f.name)
-	// 	return
-	// }
+	nameStr := name.value.(string)
 
-	// if StrArrIncludes(reserved, f.name) {
-	// 	log.Fatal("Function name \"" + f.name + "\" is reserved")
-	// 	return
-	// }
+	if scopes < len(ds.scopedFuncs) && StrArrIncludes(ds.scopedFuncs[scopes], nameStr) {
+		log.Fatal("Function already initialized: " + nameStr)
+		return
+	}
 
-	// _, err := fastfloat.Parse(f.name)
-	// if err == nil {
-	// 	log.Fatal("Function named " + f.name + " cannot be a number")
-	// 	return
-	// }
+	if StrArrIncludes(reserved, nameStr) {
+		log.Fatal("Function name \"" + nameStr + "\" is reserved")
+		return
+	}
 
-	// ds.funcs[f.name] = append(ds.funcs[f.name], f)
-	// for len(ds.scopedFuncs) < scopes {
-	// 	ds.scopedFuncs = append(ds.scopedFuncs, []string{})
-	// }
-	// for len(ds.scopedRedefFuncs) < scopes {
-	// 	ds.scopedRedefFuncs = append(ds.scopedRedefFuncs, []string{})
-	// }
-	// if _, ok := ds.funcs[f.name]; ok {
-	// 	ds.scopedRedefFuncs[scopes-1] = append(ds.scopedRedefFuncs[scopes-1], f.name)
-	// } else {
-	// 	ds.scopedFuncs[scopes-1] = append(ds.scopedFuncs[scopes-1], f.name)
-	// }
+	f := function{name: nameStr, body: data[len(data)-1].value.([]token), params: data[0 : len(data)-1]}
+	fmt.Println(f.body)
+
+	ds.funcs[nameStr] = append(ds.funcs[nameStr], f)
+	for len(ds.scopedFuncs) < scopes {
+		ds.scopedFuncs = append(ds.scopedFuncs, []string{})
+	}
+	for len(ds.scopedRedefFuncs) < scopes {
+		ds.scopedRedefFuncs = append(ds.scopedRedefFuncs, []string{})
+	}
+	if _, ok := ds.funcs[nameStr]; ok {
+		ds.scopedRedefFuncs[scopes-1] = append(ds.scopedRedefFuncs[scopes-1], nameStr)
+	} else {
+		ds.scopedFuncs[scopes-1] = append(ds.scopedFuncs[scopes-1], nameStr)
+	}
 }
 
-func CallFunc(ds *dataStore, scopes int, params ...token) (bool, []token) {
-	// name := params[0]
-	// inputs := params[1:]
-	// f := ds.funcs[name.value][len(ds.funcs[name.value])-1]
-	// funcParams := SplitList(f.params.value)
-	// for i, v := range funcParams {
-	// 	MakeVar(ds, scopes, v, GetToken(GetDsValue(ds, inputs[i]).value))
-	// }
-	// hasReturn, toReturn := Eval(ds, Tokenize(f.body.value), scopes, false)
-	// ds.inFunc = false
-	// return hasReturn, toReturn
-	return false, []token{}
+func CallFunc(ds *dataStore, scopes int, name string, params []dataType) (bool, []dataType) {
+	f := ds.funcs[name][len(ds.funcs[name])-1]
+	for i, v := range f.params {
+		MakeVar(ds, scopes, v.value.(string), GetDsValue(ds, params[i]))
+	}
+	hasReturn, toReturn := Eval(ds, f.body, scopes, false)
+	ds.inFunc = false
+	return hasReturn, toReturn
 }

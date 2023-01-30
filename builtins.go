@@ -204,9 +204,9 @@ func InitBuiltins(ds *dataStore) {
 		}
 		return false, []dataType{}
 	}
-	// ds.builtins["break"] = func(ds *dataStore, scopes int, params []token) (bool, []token) {
-	// 	return true, [][]token{GetToken("break")}
-	// }
+	ds.builtins["break"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		return true, []dataType{{dataType: BreakVals, value: params}}
+	}
 	ds.builtins["pop"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
 		if len(params) != 1 {
 			log.Fatal("Invalid number of parameters to \"pop\". Expected 1 found ", len(params))
@@ -231,25 +231,25 @@ func InitBuiltins(ds *dataStore) {
 		}
 		return true, []dataType{{dataType: Bool, value: And(ds, params...)}}
 	}
-	// ds.builtins["or"] = func(ds *dataStore, scopes int, params []token) (bool, []token) {
-	// 	if len(params) == 0 {
-	// 		log.Fatal("Invalid number of parameters to \"or\". Expected 1 or more found ", len(params))
-	// 	}
-	// 	return true, [][]token{GetToken(fmt.Sprint(Or(ds, params...)))}
-	// }
-	// ds.builtins["not"] = func(ds *dataStore, scopes int, params []token) (bool, []token) {
-	// 	if len(params) != 1 {
-	// 		log.Fatal("Invalid number of parameters to \"not\". Expected 1 or more found ", len(params))
-	// 	}
-	// 	return true, [][]token{GetToken(fmt.Sprint(Not(ds, params[0])))}
-	// }
-	// ds.builtins["func"] = func(ds *dataStore, scopes int, params []token) (bool, []token) {
-	// 	if len(params) < 3 {
-	// 		log.Fatal("Invalid number of parameters to \"func\". Expected 3 or more found ", len(params))
-	// 	}
-	// 	MakeFunction(ds, scopes, params...)
-	// 	return true, [][]token{GetToken("\"(setting function " + params[0].value + " with " + strings.Join(TokensToValue(params[1:]), " ") + ")\"")}
-	// }
+	ds.builtins["or"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		if len(params) == 0 {
+			log.Fatal("Invalid number of parameters to \"or\". Expected 1 or more found ", len(params))
+		}
+		return true, []dataType{{dataType: Bool, value: Or(ds, params...)}}
+	}
+	ds.builtins["not"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		if len(params) != 1 {
+			log.Fatal("Invalid number of parameters to \"not\". Expected 1 or more found ", len(params))
+		}
+		return true, []dataType{{dataType: Bool, value: Not(ds, params[0])}}
+	}
+	ds.builtins["func"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		if len(params) < 2 {
+			log.Fatal("Invalid number of parameters to \"func\". Expected 3 or more found ", len(params))
+		}
+		MakeFunction(ds, scopes, params[0], params[1:])
+		return true, []dataType{{dataType: String, value: "\"(setting function " + params[0].value.(string) + " with " + GetStrValue(dataType{dataType: List, value: params[1:]}) + ")\""}}
+	}
 	// ds.builtins["return"] = func(ds *dataStore, scopes int, params []token) (bool, []token) {
 	// 	if !ds.inFunc {
 	// 		log.Fatal("Not in func, cannot return")

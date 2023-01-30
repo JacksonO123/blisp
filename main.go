@@ -22,6 +22,9 @@ var dataTypes []string = []string{
 	"Identifier",
 	"Func",
 	"Nil",
+	"Tokens",
+	"BreakVals",
+	"ReturnVals",
 }
 
 const (
@@ -34,6 +37,8 @@ const (
 	Func
 	Nil
 	Tokens
+	BreakVals  // []dataType
+	ReturnVals // []dataType
 )
 
 type dataType struct {
@@ -52,11 +57,6 @@ type function struct {
 	params []dataType
 }
 
-type tokenCache struct {
-	length int
-	tokens dataType
-}
-
 type dataStore struct {
 	vars             map[string][]variable
 	scopedVars       [][]string
@@ -65,7 +65,6 @@ type dataStore struct {
 	scopedFuncs      [][]string
 	scopedRedefFuncs [][]string
 	builtins         map[string]func(*dataStore, int, []dataType) (bool, []dataType)
-	bodyCache        [][]tokenCache
 	inFunc           bool
 	inLoop           bool
 }
@@ -275,49 +274,11 @@ func GetDataTypeFromToken(t token) dataType {
 }
 
 func EvalFunc(ds *dataStore, scopes int, info []dataType) (bool, []dataType) {
-	return ds.builtins[info[0].value.(string)](ds, scopes, info[1:])
-}
-
-func BuildFuncCall(ds *dataStore, code []token, scopes int) []dataType {
-	funcCall := [][]dataType{}
-	funcNames := []string{}
-	for i := 0; i < len(code); i++ {
-		if len(funcNames) > 0 && funcNames[len(funcNames)-1] == "body" {
-			funcCall = funcCall[:len(funcCall)-1]
-			funcNames = funcNames[:len(funcNames)-1]
-			i++
-			bodyDataTokens, _ := GetFuncEnd(code[i-1:])
-			tokens := dataType{dataType: Tokens, value: bodyDataTokens}
-			i += len(bodyDataTokens) + 1
-			funcCall[len(funcCall)-1] = append(funcCall[len(funcCall)-1], tokens)
-		}
-		if code[i].tokenType == OpenParen {
-			funcCall = append(funcCall, []dataType{})
-			funcNames = append(funcNames, code[i+1].value.(string))
-		} else if code[i].tokenType == CloseParen {
-			if len(funcCall) == 1 {
-				return funcCall[0]
-			}
-			funcReturns, val := EvalFunc(ds, len(funcCall)+scopes, funcCall[len(funcCall)-1])
-			RemoveScopedVars(ds, len(funcCall)+scopes)
-			funcCall = funcCall[:len(funcCall)-1]
-			funcNames = funcNames[:len(funcNames)-1]
-			if len(funcCall) > 0 && funcReturns {
-				funcCall[len(funcCall)-1] = append(funcCall[len(funcCall)-1], val...)
-			}
-		} else if code[i].tokenType == OpenBracket {
-			arr, index := GetArr(code[i:])
-			funcCall[len(funcCall)-1] = append(funcCall[len(funcCall)-1], arr)
-			i += index + 1
-		} else if code[i].tokenType == Identifier ||
-			code[i].tokenType == StringToken ||
-			code[i].tokenType == IntToken ||
-			code[i].tokenType == BoolToken ||
-			code[i].tokenType == FloatToken {
-			funcCall[len(funcCall)-1] = append(funcCall[len(funcCall)-1], GetDataTypeFromToken(code[i]))
-		}
+	if f, ok := ds.builtins[info[0].value.(string)]; ok {
+		return f(ds, scopes, info[1:])
+	} else {
+		return CallFunc(ds, scopes, info[0].value.(string), info[1:])
 	}
-	return funcCall[0]
 }
 
 func Eval(ds *dataStore, code []token, scopes int, root bool) (bool, []dataType) {
@@ -345,6 +306,9 @@ func Eval(ds *dataStore, code []token, scopes int, root bool) (bool, []dataType)
 			}
 			funcReturns, val := EvalFunc(ds, len(funcCall)+scopes, funcCall[len(funcCall)-1])
 			RemoveScopedVars(ds, len(funcCall)+scopes)
+			if funcReturns && len(val) > 0 && val[0].dataType == BreakVals {
+				return true, []dataType{val[0]}
+			}
 			funcCall = funcCall[:len(funcCall)-1]
 			funcNames = funcNames[:len(funcNames)-1]
 			if len(funcCall) > 0 {
@@ -374,6 +338,7 @@ func Eval(ds *dataStore, code []token, scopes int, root bool) (bool, []dataType)
 			toReturn = []dataType{}
 		}
 	}
+	fmt.Println(ds.funcs)
 	return hasReturn, toReturn
 }
 
@@ -391,7 +356,6 @@ func main() {
 	ds.scopedFuncs = [][]string{}
 	ds.scopedRedefFuncs = [][]string{}
 	ds.builtins = make(map[string]func(*dataStore, int, []dataType) (bool, []dataType))
-	ds.bodyCache = [][]tokenCache{}
 	ds.inFunc = false
 	ds.inLoop = false
 	InitBuiltins(ds)

@@ -3,19 +3,19 @@ print:
 - params of any type
 
 +:
-- any # of params
+- more than 0 params
 - params must be float or int type
 
 -:
-- any # of params
+- more than 0 params
 - params must be float or int type
 
 *:
-- any # of params
+- more than 0 params
 - params must be float or int type
 
 /:
-- any # of params
+- more than 0 params
 - params must be float or int type
 
 ^:
@@ -28,7 +28,7 @@ print:
 - params must be int type
 
 eval:
-- any # of params
+- more than 0 params
 - if it only has 1 param, it returns the return value of its evaluation
 - params must be of type string ... good luck
 
@@ -79,12 +79,12 @@ if:
 	third is optional if the condition is false
 
 eq:
-- any # of params
+- more than 0 params
 - returns true if all params are equal, false if not
 
 body:
 - not a function
-- equivalent of "{ ... }" in languages like c, c++, java, javascript, etc
+- equivalent of "{ ... }" in other languages
 
 append, prepend:
 - 2 or more params
@@ -92,7 +92,8 @@ append, prepend:
 - other params can be any type
 
 exit:
-- no params
+- 0 or 1 params
+- param is exit code, must be int
 
 break:
 - breaks from list

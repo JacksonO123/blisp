@@ -337,7 +337,7 @@ func Mod(ds *dataStore, num1 dataType, num2 dataType) dataType {
 	return dataType{dataType: Int, value: val1 % val2}
 }
 
-func MakeVar(ds *dataStore, scopes int, name string, data dataType) {
+func MakeVar(ds *dataStore, scopes int, name string, data dataType, isConst bool) {
 	if scopes < len(ds.scopedVars) && StrArrIncludes(ds.scopedVars[scopes], name) {
 		log.Fatal("Variable already initialized: ", name)
 		return
@@ -353,13 +353,18 @@ func MakeVar(ds *dataStore, scopes int, name string, data dataType) {
 		return
 	}
 
+	temp := ds.vars[name]
+	if len(temp) > 0 && temp[len(temp)-1].isConst {
+		log.Fatal("Variable is constant, unable to redefine value")
+	}
+
 	if data.dataType == List {
-		ds.vars[name] = append(ds.vars[name], GetVariableFrom(name, data))
+		ds.vars[name] = append(ds.vars[name], GetVariableFrom(name, data, isConst))
 	} else if data.dataType == Ident {
 		val := GetDsValue(ds, data)
-		ds.vars[name] = append(ds.vars[name], GetVariableFrom(name, val))
+		ds.vars[name] = append(ds.vars[name], GetVariableFrom(name, val, isConst))
 	} else {
-		ds.vars[name] = append(ds.vars[name], GetVariableFrom(name, data))
+		ds.vars[name] = append(ds.vars[name], GetVariableFrom(name, data, isConst))
 	}
 	for len(ds.scopedVars) < scopes {
 		ds.scopedVars = append(ds.scopedVars, []string{})
@@ -375,15 +380,19 @@ func MakeVar(ds *dataStore, scopes int, name string, data dataType) {
 }
 
 func SetVar(ds *dataStore, name string, data dataType) {
-	if _, ok := ds.vars[name]; !ok {
+	if v, ok := ds.vars[name]; !ok {
 		log.Fatal("Variable not initialized: ", name)
 		return
+	} else {
+		if v[len(v)-1].isConst {
+			log.Fatal("Variable is constant, unable to set value")
+		}
 	}
 	if data.dataType == Ident {
 		val := GetDsValue(ds, data)
-		ds.vars[name][len(ds.vars[name])-1] = GetVariableFrom(name, val)
+		ds.vars[name][len(ds.vars[name])-1] = GetVariableFrom(name, val, false)
 	} else {
-		ds.vars[name][len(ds.vars[name])-1] = GetVariableFrom(name, data)
+		ds.vars[name][len(ds.vars[name])-1] = GetVariableFrom(name, data, false)
 	}
 }
 
@@ -443,7 +452,7 @@ func LoopListIterator(ds *dataStore, scopes int, list dataType, iteratorName dat
 	made := false
 	for _, v := range arr.value.([]dataType) {
 		if !made {
-			MakeVar(ds, scopes+1, iteratorName.value.(string), v)
+			MakeVar(ds, scopes+1, iteratorName.value.(string), v, false)
 		} else {
 			SetVar(ds, iteratorName.value.(string), v)
 		}
@@ -467,8 +476,8 @@ func LoopListIndexIterator(ds *dataStore, scopes int, list dataType, indexIterat
 	made := false
 	for i, v := range arr.value.([]dataType) {
 		if !made {
-			MakeVar(ds, scopes+1, iteratorName.value.(string), v)
-			MakeVar(ds, scopes+1, indexIterator.value.(string), dataType{dataType: Int, value: i})
+			MakeVar(ds, scopes+1, iteratorName.value.(string), v, false)
+			MakeVar(ds, scopes+1, indexIterator.value.(string), dataType{dataType: Int, value: i}, false)
 		} else {
 			SetVar(ds, iteratorName.value.(string), v)
 			SetVar(ds, indexIterator.value.(string), dataType{dataType: Int, value: i})
@@ -490,7 +499,7 @@ func LoopTo(ds *dataStore, scopes int, max dataType, indexIterator dataType, bod
 	made := false
 	for i := 0; i < maxNum; i++ {
 		if !made {
-			MakeVar(ds, scopes+1, indexIterator.value.(string), dataType{dataType: Int, value: i})
+			MakeVar(ds, scopes+1, indexIterator.value.(string), dataType{dataType: Int, value: i}, false)
 		} else {
 			SetVar(ds, indexIterator.value.(string), dataType{dataType: Int, value: i})
 		}
@@ -527,7 +536,7 @@ func LoopFromTo(ds *dataStore, scopes int, start dataType, max dataType, indexIt
 	}
 	for ; comp(); next() {
 		if !made {
-			MakeVar(ds, scopes+1, indexIterator.value.(string), dataType{dataType: Int, value: i})
+			MakeVar(ds, scopes+1, indexIterator.value.(string), dataType{dataType: Int, value: i}, false)
 		} else {
 			SetVar(ds, indexIterator.value.(string), dataType{dataType: Int, value: i})
 		}
@@ -802,7 +811,7 @@ func MakeFunction(ds *dataStore, scopes int, name dataType, data []dataType) {
 func CallFunc(ds *dataStore, scopes int, name string, params []dataType) (bool, []dataType) {
 	f := ds.funcs[name][len(ds.funcs[name])-1]
 	for i, v := range f.params {
-		MakeVar(ds, scopes, v.value.(string), GetDsValue(ds, params[i]))
+		MakeVar(ds, scopes, v.value.(string), GetDsValue(ds, params[i]), false)
 	}
 	hasReturn, toReturn := Eval(ds, f.body, scopes, false)
 	ds.inFunc = false

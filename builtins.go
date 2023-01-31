@@ -63,7 +63,11 @@ func InitBuiltins(ds *dataStore) {
 		}
 	}
 	ds.builtins["var"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
-		MakeVar(ds, scopes, params[0].value.(string), params[1])
+		MakeVar(ds, scopes, params[0].value.(string), params[1], false)
+		return true, []dataType{{dataType: String, value: "\"(initializing " + QuoteToQuoteLiteral(params[0].value.(string)) + " to " + GetStrValue(params[1]) + ")\""}}
+	}
+	ds.builtins["const"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		MakeVar(ds, scopes, params[0].value.(string), params[1], true)
 		return true, []dataType{{dataType: String, value: "\"(initializing " + QuoteToQuoteLiteral(params[0].value.(string)) + " to " + GetStrValue(params[1]) + ")\""}}
 	}
 	ds.builtins["set"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {

@@ -47,8 +47,9 @@ type dataType struct {
 }
 
 type variable struct {
-	name string
-	data dataType
+	name    string
+	isConst bool
+	data    dataType
 }
 
 type function struct {
@@ -96,10 +97,11 @@ func TokensToString(tokens []token) []string {
 	return res
 }
 
-func GetVariableFrom(name string, val dataType) variable {
+func GetVariableFrom(name string, val dataType, isConst bool) variable {
 	var variable variable
 	variable.name = name
 	variable.data = val
+	variable.isConst = isConst
 	return variable
 }
 

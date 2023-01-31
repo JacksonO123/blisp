@@ -3,8 +3,14 @@
 To run blisp
 
 ```sh
-./run.sh [FILENAME] [FLAGS]
+./run.sh [COMMAND] [FILENAME] [FLAGS]
 ```
+
+[COMMAND] can be:
+- `dev` => `go run *.go`
+- `build` => `go build`
+- `prod` => `./blisp`
+- `time-prod` => `/usr/bin/time ./blisp`
 
 Not including [FILENAME] [FLAGS] will start a repl
 

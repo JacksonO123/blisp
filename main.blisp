@@ -1,11 +1,18 @@
-(func test max (body
+(func make-arr l (body
+	(var h [])
+	(loop l i (body (append h i)))
+	(return h)
+))
+
+(func collect arr d e (body
 	(var res [])
-	(loop max i (body
-		(append res i)
-	))
+	(loop arr i (body (if (eq (% i d) e) (body (append res i)))))
 	(return res)
 ))
 
-(print "Enter number")
-(var h (parse (scan-line)))
-(print (test h))
+(print "Enter length:")
+(var l (parse (scan-line)))
+(var arr (make-arr l))
+(var even (collect arr 2 0))
+(var odd (collect arr 2 1))
+(print even odd)

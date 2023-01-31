@@ -157,6 +157,8 @@ func Add(ds *dataStore, params ...dataType) dataType {
 			res += float64(info.value.(int))
 		} else if info.dataType == Float {
 			res += info.value.(float64)
+		} else {
+			log.Fatal("Cannot + type ", dataTypes[info.dataType])
 		}
 	}
 	var d dataType
@@ -180,6 +182,8 @@ func Sub(ds *dataStore, params ...dataType) dataType {
 		res = float64(firstVal.value.(int))
 	} else if firstVal.dataType == Float {
 		res = firstVal.value.(float64)
+	} else {
+		log.Fatal("Cannot - type ", dataTypes[firstVal.dataType])
 	}
 	if len(params) == 1 {
 		res *= -1
@@ -193,6 +197,8 @@ func Sub(ds *dataStore, params ...dataType) dataType {
 				res -= float64(info.value.(int))
 			} else if info.dataType == Float {
 				res -= info.value.(float64)
+			} else {
+				log.Fatal("Cannot - type ", dataTypes[info.dataType])
 			}
 		}
 	}
@@ -217,12 +223,16 @@ func Mult(ds *dataStore, params ...dataType) dataType {
 		res = float64(firstVal.value.(int))
 	} else if firstVal.dataType == Float {
 		res = firstVal.value.(float64)
+	} else {
+		log.Fatal("Cannot * type ", dataTypes[firstVal.dataType])
 	}
 	for _, v := range params[1:] {
 		if v.dataType == Int {
 			res *= float64(v.value.(int))
 		} else if v.dataType == Float {
 			res *= v.value.(float64)
+		} else {
+			log.Fatal("Cannot * type ", dataTypes[v.dataType])
 		}
 	}
 	var d dataType
@@ -246,12 +256,16 @@ func Divide(ds *dataStore, params ...dataType) dataType {
 		res = float64(firstVal.value.(int))
 	} else if firstVal.dataType == Float {
 		res = firstVal.value.(float64)
+	} else {
+		log.Fatal("Cannot / type ", dataTypes[firstVal.dataType])
 	}
 	for _, v := range params[1:] {
 		if v.dataType == Int {
 			res /= float64(v.value.(int))
 		} else if v.dataType == Float {
 			res /= v.value.(float64)
+		} else {
+			log.Fatal("Cannot / type ", dataTypes[v.dataType])
 		}
 	}
 	var d dataType
@@ -272,8 +286,10 @@ func Exp(ds *dataStore, base dataType, exp dataType) dataType {
 	}
 	if base.dataType == Float {
 		num1 = base.value.(float64)
-	} else {
+	} else if base.dataType == Int {
 		num1 = float64(base.value.(int))
+	} else {
+		log.Fatal("Cannot ^ type ", dataTypes[base.dataType])
 	}
 	var num2 float64 = 0
 	if exp.dataType == Ident {
@@ -281,8 +297,10 @@ func Exp(ds *dataStore, base dataType, exp dataType) dataType {
 	}
 	if exp.dataType == Float {
 		num2 = exp.value.(float64)
-	} else {
+	} else if exp.dataType == Int {
 		num2 = float64(exp.value.(int))
+	} else {
+		log.Fatal("Cannot ^ type ", dataTypes[exp.dataType])
 	}
 	res := math.Pow(num1, num2)
 	var d dataType
@@ -301,19 +319,20 @@ func Mod(ds *dataStore, num1 dataType, num2 dataType) dataType {
 	if num1.dataType == Ident {
 		num1 = GetDsValue(ds, num1)
 	}
-	if num1.dataType == Float {
-		log.Fatal("Unable to apply operator % on type \"Float\"")
-	} else {
+	if num1.dataType == Int {
 		val1 = num1.value.(int)
+	} else {
+		log.Fatal("Cannot % type ", dataTypes[num1.dataType])
 	}
 	val2 := 0
 	if num2.dataType == Ident {
 		num2 = GetDsValue(ds, num2)
 	}
 	if num2.dataType == Float {
-		log.Fatal("Unable to apply operator % on type \"Float\"")
-	} else {
+	} else if num2.dataType == Int {
 		val2 = num2.value.(int)
+	} else {
+		log.Fatal("Cannot % type", dataTypes[num2.dataType])
 	}
 	return dataType{dataType: Int, value: val1 % val2}
 }

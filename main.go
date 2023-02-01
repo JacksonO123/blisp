@@ -134,34 +134,6 @@ func RemoveScopedVars(ds *dataStore, keepScopes int) {
 	}
 }
 
-func JoinTokens(tokens []token) string {
-	res := ""
-	for i, v := range tokens {
-		if i > 0 {
-			if tokens[i].tokenType == Identifier {
-				if tokens[i-1].tokenType == CloseParen ||
-					tokens[i-1].tokenType == CloseBracket ||
-					tokens[i-1].tokenType == Identifier {
-					res += " " + fmt.Sprint(v.value)
-				} else {
-					res += fmt.Sprint(v.value)
-				}
-			} else if (tokens[i-1].tokenType == Identifier ||
-				tokens[i-1].tokenType == CloseParen ||
-				tokens[i-1].tokenType == StringToken) &&
-				tokens[i].tokenType != CloseParen &&
-				tokens[i].tokenType != CloseBracket {
-				res += " " + fmt.Sprint(v.value)
-			} else {
-				res += fmt.Sprint(v.value)
-			}
-		} else {
-			res += fmt.Sprint(v.value)
-		}
-	}
-	return res
-}
-
 func GetStrSlice(str string) (string, int) {
 	res := []rune{}
 	for i, v := range str {

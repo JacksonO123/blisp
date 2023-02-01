@@ -1,3 +1,5 @@
-(const h 4)
-(var list [h 1 2])
-(set (get list 0) 2)
+(var h [])
+(loop 1000000 i (body
+	(append h i)
+))
+(print h)

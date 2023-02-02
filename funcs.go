@@ -817,3 +817,43 @@ func CallFunc(ds *dataStore, scopes int, name string, params []dataType) (bool, 
 	ds.inFunc = false
 	return hasReturn, toReturn
 }
+
+func GetAndCompareNumbers(ds *dataStore, val1 dataType, val2 dataType, f func(num1 float64, num2 float64) bool) bool {
+	if val1.dataType == Ident {
+		val1 = GetDsValue(ds, val1)
+	}
+	if val2.dataType == Ident {
+		val2 = GetDsValue(ds, val2)
+	}
+	var num1 float64 = 0
+	var num2 float64 = 0
+	if val1.dataType == Int {
+		num1 = float64(val1.value.(int))
+	} else if val1.dataType == Float {
+		num1 = val1.value.(float64)
+	} else {
+		log.Fatal("Expected \"In\" or \"Float\" found ", dataTypes[val1.dataType])
+	}
+	if val2.dataType == Int {
+		num2 = float64(val2.value.(int))
+	} else if val2.dataType == Float {
+		num2 = val2.value.(float64)
+	} else {
+		log.Fatal("Expected \"In\" or \"Float\" found ", dataTypes[val2.dataType])
+	}
+	return f(num1, num2)
+}
+
+func LessThan(ds *dataStore, val1 dataType, val2 dataType) bool {
+	comp := func(num1 float64, num2 float64) bool {
+		return num1 < num2
+	}
+	return GetAndCompareNumbers(ds, val1, val2, comp)
+}
+
+func LessThanOrEqualTo(ds *dataStore, val1 dataType, val2 dataType) bool {
+	comp := func(num1 float64, num2 float64) bool {
+		return num1 <= num2
+	}
+	return GetAndCompareNumbers(ds, val1, val2, comp)
+}

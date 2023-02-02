@@ -325,6 +325,7 @@ func Eval(ds *dataStore, code []token, scopes int, root bool) (bool, []dataType)
 var benchmark bool = false
 
 func main() {
+	fmt.Println("started")
 	args := os.Args[1:]
 	scanner := bufio.NewScanner(os.Stdin)
 	fileName := ""

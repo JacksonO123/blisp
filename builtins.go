@@ -304,4 +304,28 @@ func InitBuiltins(ds *dataStore) {
 		}
 		return true, res
 	}
+	ds.builtins["<"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		if len(params) != 2 {
+			log.Fatal("Invalid number of parameters to \"<\". Expected 2 found ", len(params))
+		}
+		return true, []dataType{{dataType: Bool, value: LessThan(ds, params[0], params[1])}}
+	}
+	ds.builtins["<="] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		if len(params) != 2 {
+			log.Fatal("Invalid number of parameters to \"<\". Expected 2 found ", len(params))
+		}
+		return true, []dataType{{dataType: Bool, value: LessThanOrEqualTo(ds, params[0], params[1])}}
+	}
+	ds.builtins[">"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		if len(params) != 2 {
+			log.Fatal("Invalid number of parameters to \"<\". Expected 2 found ", len(params))
+		}
+		return true, []dataType{{dataType: Bool, value: LessThan(ds, params[1], params[0])}}
+	}
+	ds.builtins[">="] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		if len(params) != 2 {
+			log.Fatal("Invalid number of parameters to \"<\". Expected 2 found ", len(params))
+		}
+		return true, []dataType{{dataType: Bool, value: LessThanOrEqualTo(ds, params[1], params[0])}}
+	}
 }

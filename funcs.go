@@ -857,3 +857,44 @@ func LessThanOrEqualTo(ds *dataStore, val1 dataType, val2 dataType) bool {
 	}
 	return GetAndCompareNumbers(ds, val1, val2, comp)
 }
+
+func GetFile(ds *dataStore, file dataType) string {
+	if file.dataType == Ident {
+		file = GetDsValue(ds, file)
+	}
+	if file.dataType != String {
+		log.Fatal("Error in \"read\", expected \"String\" found ", dataTypes[file.dataType])
+	}
+	str := file.value.(string)
+	str = str[1 : len(str)-1]
+	val, err := os.ReadFile(str)
+	if err == nil {
+		return string(val)
+	} else {
+		log.Fatal(err)
+	}
+	return ""
+}
+
+func WriteFile(ds *dataStore, file dataType, data dataType) {
+	if file.dataType == Ident {
+		file = GetDsValue(ds, file)
+	}
+	if data.dataType == Ident {
+		data = GetDsValue(ds, data)
+	}
+	if file.dataType != String {
+		log.Fatal("Error in \"read\", expected \"String\" found ", dataTypes[file.dataType])
+	}
+	if data.dataType != String {
+		log.Fatal("Error in \"read\", expected \"String\" found ", dataTypes[file.dataType])
+	}
+	fileStr := file.value.(string)
+	fileStr = fileStr[1 : len(fileStr)-1]
+	dataStr := data.value.(string)
+	dataStr = dataStr[1 : len(dataStr)-1]
+	err := os.WriteFile(fileStr, []byte(dataStr), 0666)
+	if err != nil {
+		log.Fatal(err)
+	}
+}

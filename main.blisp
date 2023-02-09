@@ -1,5 +1,4 @@
-(var h [])
-(loop 1000000 i (body
-	(append h i)
-))
-(print h)
+(print "Enter info:")
+(var h (scan-line))
+(write "temp.txt" h)
+(print (read "temp.txt"))

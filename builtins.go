@@ -312,20 +312,33 @@ func InitBuiltins(ds *dataStore) {
 	}
 	ds.builtins["<="] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
 		if len(params) != 2 {
-			log.Fatal("Invalid number of parameters to \"<\". Expected 2 found ", len(params))
+			log.Fatal("Invalid number of parameters to \"<=\". Expected 2 found ", len(params))
 		}
 		return true, []dataType{{dataType: Bool, value: LessThanOrEqualTo(ds, params[0], params[1])}}
 	}
 	ds.builtins[">"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
 		if len(params) != 2 {
-			log.Fatal("Invalid number of parameters to \"<\". Expected 2 found ", len(params))
+			log.Fatal("Invalid number of parameters to \">\". Expected 2 found ", len(params))
 		}
 		return true, []dataType{{dataType: Bool, value: LessThan(ds, params[1], params[0])}}
 	}
 	ds.builtins[">="] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
 		if len(params) != 2 {
-			log.Fatal("Invalid number of parameters to \"<\". Expected 2 found ", len(params))
+			log.Fatal("Invalid number of parameters to \">=\". Expected 2 found ", len(params))
 		}
 		return true, []dataType{{dataType: Bool, value: LessThanOrEqualTo(ds, params[1], params[0])}}
+	}
+	ds.builtins["read"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		if len(params) != 1 {
+			log.Fatal("Invalid number of parameters to \"read\". Expected 1 found ", len(params))
+		}
+		return true, []dataType{{dataType: String, value: GetFile(ds, params[0])}}
+	}
+	ds.builtins["write"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		if len(params) != 2 {
+			log.Fatal("Invalid number of parameters to \"write\". Expected 2 found ", len(params))
+		}
+		WriteFile(ds, params[0], params[1])
+		return true, []dataType{{dataType: String, value: "\"(writing file)\""}}
 	}
 }

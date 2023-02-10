@@ -222,7 +222,8 @@ func GetDataTypeFromToken(t token) dataType {
 	case StringToken:
 		{
 			d.dataType = String
-			d.value = t.value.(string)
+			str := t.value.(string)
+			d.value = str[1 : len(str)-1]
 		}
 	case BoolToken:
 		{

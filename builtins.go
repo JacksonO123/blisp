@@ -41,7 +41,7 @@ func InitBuiltins(ds *dataStore) {
 	ds.builtins["eval"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
 		strVal := params[0].value.(string)
 		if len(params) == 1 {
-			toEval := PrepQuotesString(strVal[1 : len(strVal)-1])
+			toEval := PrepQuotesString(strVal)
 			hasReturn, toReturn := Eval(ds, Tokenize(toEval), scopes, false)
 			if !hasReturn {
 				return true, []dataType{{dataType: String, value: "\"(evaluating " + QuoteToQuoteLiteral(strVal) + ")\""}}
@@ -50,7 +50,7 @@ func InitBuiltins(ds *dataStore) {
 		} else {
 			for _, v := range params {
 				strVal := v.value.(string)
-				Eval(ds, Tokenize(strVal[1:len(strVal)-1]), scopes, false)
+				Eval(ds, Tokenize(strVal), scopes, false)
 			}
 			toPrint := ""
 			for i, v := range params {
@@ -99,13 +99,13 @@ func InitBuiltins(ds *dataStore) {
 		if len(params) != 1 {
 			log.Fatal("Invalid number of parameters to \"type\". Expected 1 found ", len(params))
 		}
-		return true, []dataType{{dataType: String, value: dataTypes[params[0].dataType]}}
+		return true, []dataType{{dataType: String, value: GetType(ds, params[0])}}
 	}
 	ds.builtins["get"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
 		if len(params) != 2 {
 			log.Fatal("Invalid number of parameters to \"get\". Expected 2 found ", len(params))
 		}
-		return true, []dataType{GetValueFromList(ds, params[0], params[1])}
+		return true, []dataType{GetFromValue(ds, params[0], params[1])}
 	}
 	ds.builtins["loop"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
 		if len(params) == 3 {
@@ -340,5 +340,13 @@ func InitBuiltins(ds *dataStore) {
 		}
 		WriteFile(ds, params[0], params[1])
 		return true, []dataType{{dataType: String, value: "\"(writing file)\""}}
+	}
+	ds.builtins["substr"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		if len(params) == 2 {
+			return true, []dataType{{dataType: String, value: SubstrEnd(ds, params[0], params[1])}}
+		} else if len(params) == 3 {
+			return true, []dataType{{dataType: String, value: Substr(ds, params[0], params[1], params[2])}}
+		}
+		return false, []dataType{}
 	}
 }

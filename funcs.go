@@ -5,6 +5,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"strings"
 )
 
 var reserved []string = []string{
@@ -428,20 +429,32 @@ func GetDsValue(ds *dataStore, val dataType) dataType {
 	return val
 }
 
-func GetValueFromList(ds *dataStore, list dataType, index dataType) dataType {
-	var arr []dataType
-	if list.dataType == Ident {
-		arr = GetDsValue(ds, list).value.([]dataType)
-	} else {
-		arr = list.value.([]dataType)
+func GetFromValue(ds *dataStore, val dataType, index dataType) dataType {
+	if val.dataType == Ident {
+		val = GetDsValue(ds, val)
 	}
-	var indx int = 0
-	if index.dataType == Int {
-		indx = index.value.(int)
-	} else {
-		log.Fatal("Expected \"Int\" found ", dataTypes[index.dataType])
+	if val.dataType != String && val.dataType != List {
+		log.Fatal("Error in \"get\", expected \"String\" or \"List\" found ", dataTypes[val.dataType])
 	}
-	return arr[indx]
+
+	if index.dataType == Ident {
+		index = GetDsValue(ds, index)
+	}
+	if index.dataType != Int {
+		log.Fatal("Error in \"get\", expected \"Int\" found ", dataTypes[index.dataType])
+	}
+
+	if val.dataType == String {
+		parts := strings.Split(val.value.(string), "")
+		var d dataType
+		d.dataType = String
+		d.value = parts[index.value.(int)]
+		return d
+	} else if val.dataType == List {
+		parts := val.value.([]dataType)
+		return parts[index.value.(int)]
+	}
+	return dataType{dataType: Nil, value: nil}
 }
 
 func LoopListIterator(ds *dataStore, scopes int, list dataType, iteratorName dataType, body dataType) (bool, []dataType) {
@@ -809,6 +822,9 @@ func MakeFunction(ds *dataStore, scopes int, name dataType, data []dataType) {
 }
 
 func CallFunc(ds *dataStore, scopes int, name string, params []dataType) (bool, []dataType) {
+	if len(ds.funcs[name]) == 0 {
+		log.Fatal("Unknown function: \"", name, "\"")
+	}
 	f := ds.funcs[name][len(ds.funcs[name])-1]
 	for i, v := range f.params {
 		MakeVar(ds, scopes, v.value.(string), GetDsValue(ds, params[i]), false)
@@ -897,4 +913,57 @@ func WriteFile(ds *dataStore, file dataType, data dataType) {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func SubstrEnd(ds *dataStore, str dataType, index dataType) string {
+	if str.dataType == Ident {
+		str = GetDsValue(ds, str)
+	}
+	if index.dataType == Ident {
+		index = GetDsValue(ds, index)
+	}
+	if str.dataType != String {
+		log.Fatal("Error in \"substr\", expected \"String\" found ", dataTypes[str.dataType])
+	}
+	if index.dataType != Int {
+		log.Fatal("Error in \"substr\", expected \"Int\" found ", dataTypes[index.dataType])
+	}
+	return str.value.(string)[index.value.(int):]
+}
+
+func Substr(ds *dataStore, str dataType, startIndex dataType, endIndex dataType) string {
+	if str.dataType == Ident {
+		str = GetDsValue(ds, str)
+	}
+	if startIndex.dataType == Ident {
+		startIndex = GetDsValue(ds, startIndex)
+	}
+	if endIndex.dataType == Ident {
+		endIndex = GetDsValue(ds, endIndex)
+	}
+	if str.dataType != String {
+		log.Fatal("Error in \"substr\", expected \"String\" found ", dataTypes[str.dataType])
+	}
+	if startIndex.dataType != Int {
+		log.Fatal("Error in \"substr\", expected \"Int\" found ", dataTypes[startIndex.dataType])
+	}
+	if endIndex.dataType != Int {
+		log.Fatal("Error in \"substr\", expected \"Int\" found ", dataTypes[endIndex.dataType])
+	}
+	return str.value.(string)[startIndex.value.(int):endIndex.value.(int)]
+}
+
+func GetType(ds *dataStore, val dataType) string {
+	isIdent := false
+	if val.dataType == Ident {
+		isIdent = true
+		val = GetDsValue(ds, val)
+	}
+
+	str := ""
+	if isIdent {
+		str += "Identifier: "
+	}
+	str += dataTypes[val.dataType]
+	return str
 }

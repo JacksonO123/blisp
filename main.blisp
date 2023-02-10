@@ -1,4 +1,2 @@
-(print "Enter info:")
-(var h (scan-line))
-(write "temp.txt" h)
-(print (read "temp.txt"))
+(var h "test")
+(print (get h 1))

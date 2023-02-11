@@ -19,10 +19,11 @@ var dataTypes []string = []string{
 	"Float",
 	"Bool",
 	"List",
-	"Identifier",
+	"Ident",
 	"Func",
 	"Nil",
 	"Tokens",
+	"Struct",
 	"BreakVals",
 	"ReturnVals",
 }
@@ -37,6 +38,7 @@ const (
 	Func
 	Nil
 	Tokens
+	Struct
 	BreakVals  // []dataType
 	ReturnVals // []dataType
 )

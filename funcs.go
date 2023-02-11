@@ -433,15 +433,21 @@ func GetFromValue(ds *dataStore, val dataType, index dataType) dataType {
 	if val.dataType == Ident {
 		val = GetDsValue(ds, val)
 	}
-	if val.dataType != String && val.dataType != List {
-		log.Fatal("Error in \"get\", expected \"String\" or \"List\" found ", dataTypes[val.dataType])
+	if val.dataType != String && val.dataType != List && val.dataType != Struct {
+		log.Fatal("Error in \"get\", expected \"String\", \"List\", or \"Struct\" found ", dataTypes[val.dataType])
 	}
 
-	if index.dataType == Ident {
-		index = GetDsValue(ds, index)
-	}
-	if index.dataType != Int {
-		log.Fatal("Error in \"get\", expected \"Int\" found ", dataTypes[index.dataType])
+	if val.dataType != Struct {
+		if index.dataType == Ident {
+			index = GetDsValue(ds, index)
+		}
+		if index.dataType != Int {
+			log.Fatal("Error in \"get\", expected \"Int\" found ", dataTypes[index.dataType])
+		}
+	} else {
+		if index.dataType != Ident {
+			log.Fatal("Unable to index \"Struct\" with type ", dataTypes[index.dataType])
+		}
 	}
 
 	if val.dataType == String {
@@ -453,6 +459,9 @@ func GetFromValue(ds *dataStore, val dataType, index dataType) dataType {
 	} else if val.dataType == List {
 		parts := val.value.([]dataType)
 		return parts[index.value.(int)]
+	} else if val.dataType == Struct {
+		parts := val.value.(map[string]dataType)
+		return parts[index.value.(string)]
 	}
 	return dataType{dataType: Nil, value: nil}
 }
@@ -739,27 +748,60 @@ func And(ds *dataStore, params ...dataType) bool {
 	return true
 }
 
-func SetIndex(ds *dataStore, list dataType, index int, value dataType) (bool, dataType) {
+func SetValue(ds *dataStore, val dataType, index dataType, value dataType) (bool, dataType) {
 	if value.dataType == Ident {
 		value = GetDsValue(ds, value)
 	}
-	if list.dataType == Ident {
-		name := list.value.(string)
-		list = GetDsValue(ds, list)
-		if index >= len(list.value.([]dataType)) {
-			log.Fatal("Index out of bounds ", index, " on ", GetArrStr(list))
-		}
-		list.value.([]dataType)[index] = value
-		SetVar(ds, name, list)
-		return false, dataType{dataType: Nil, value: nil}
-	} else {
-		list = GetDsValue(ds, list)
-		if index >= len(list.value.([]dataType)) {
-			log.Fatal("Index out of bounds ", index, " on ", GetArrStr(list))
-		}
-		list.value.([]dataType)[index] = value
-		return true, list
+
+	name := ""
+	setVar := false
+
+	if val.dataType == Ident {
+		name = val.value.(string)
+		setVar = true
 	}
+
+	if val.dataType == Ident {
+		val = GetDsValue(ds, val)
+	}
+	if val.dataType != Struct && val.dataType != List {
+		log.Fatal("Error in \"set\", expected \"Struct\" or \"List\" found ", dataTypes[val.dataType])
+	}
+
+	if val.dataType == Struct {
+		if index.dataType != Ident {
+			log.Fatal("Error in \"set\", expected \"Ident\" found ", dataTypes[index.dataType])
+		}
+
+		m := val.value.(map[string]dataType)
+		if _, ok := m[index.value.(string)]; ok {
+			m[index.value.(string)] = value
+		} else {
+			log.Fatal("Error in \"set\", property ", index.value.(string), " not found on ", m)
+		}
+		val.value = m
+	} else if val.dataType == List {
+		list := val.value.([]dataType)
+		if index.dataType == Ident {
+			index = GetDsValue(ds, index)
+		}
+		if index.dataType != Int {
+			log.Fatal("Error in \"set\", expected \"Int\" found ", dataTypes[index.dataType])
+		}
+		idx := index.value.(int)
+		if idx >= len(list) {
+			log.Fatal("Index out of bounds ", index, " on list of length ", len(list))
+		}
+		val.value.([]dataType)[idx] = value
+	} else {
+		log.Fatal("Error in \"set\", expected \"List\" or \"Struct\" found ", dataTypes[val.dataType])
+	}
+
+	if setVar {
+		SetVar(ds, name, val)
+	}
+
+	return false, dataType{dataType: Nil, value: nil}
 }
 
 func Or(ds *dataStore, params ...dataType) bool {
@@ -966,4 +1008,43 @@ func GetType(ds *dataStore, val dataType) string {
 	}
 	str += dataTypes[val.dataType]
 	return str
+}
+
+func MakeStruct(ds *dataStore, params ...dataType) dataType {
+	var d dataType
+	d.dataType = Struct
+
+	m := make(map[string]dataType)
+	key := dataType{dataType: Nil, value: nil}
+	for i, v := range params {
+		if i%2 == 0 {
+			if v.dataType != Ident {
+				log.Fatal("Expected \"Ident\" found ", dataTypes[v.dataType])
+			}
+			key = v
+			m[v.value.(string)] = dataType{dataType: Nil, value: nil}
+		} else {
+			info := v
+			if info.dataType == Ident {
+				if info.value.(string) == "_" {
+					continue
+				}
+				info = GetDsValue(ds, info)
+				if info.dataType == Ident {
+					log.Fatal("Unknown value: ", info.value.(string))
+				} else {
+					if key.dataType == Ident {
+						m[key.value.(string)] = info
+					}
+				}
+			} else {
+				if key.dataType == Ident {
+					m[key.value.(string)] = info
+				}
+			}
+		}
+	}
+
+	d.value = m
+	return d
 }

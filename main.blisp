@@ -1,2 +1,6 @@
-(var h "test")
-(print (get h 1))
+(var h (struct kv 345))
+(print h)
+
+(set h kv 1)
+
+(print h)

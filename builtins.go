@@ -78,13 +78,7 @@ func InitBuiltins(ds *dataStore) {
 			SetVar(ds, params[0].value.(string), params[1])
 			return true, []dataType{{dataType: String, value: "\"(setting " + QuoteToQuoteLiteral(params[0].value.(string)) + " to " + GetStrValue(params[1]) + ")\""}}
 		} else {
-			var index int
-			if params[1].dataType == Int {
-				index = params[1].value.(int)
-			} else {
-				log.Fatal("Cannot set index of array with type \"Float\"")
-			}
-			SetIndex(ds, params[0], index, params[2])
+			SetValue(ds, params[0], params[1], params[2])
 			return true, []dataType{{dataType: String, value: "\"(setting " + QuoteToQuoteLiteral(params[0].value.(string)) + " at index " + GetStrValue(params[1]) + " to " + QuoteToQuoteLiteral(GetStrValue(params[1])) + ")\""}}
 		}
 	}
@@ -348,5 +342,8 @@ func InitBuiltins(ds *dataStore) {
 			return true, []dataType{{dataType: String, value: Substr(ds, params[0], params[1], params[2])}}
 		}
 		return false, []dataType{}
+	}
+	ds.builtins["struct"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		return true, []dataType{MakeStruct(ds, params...)}
 	}
 }

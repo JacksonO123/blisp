@@ -1,6 +1,17 @@
-(var h (struct kv 345))
-(print h)
-
-(set h kv 1)
-
-(print h)
+(print "Enter stopping number:")
+(var stop (parse (scan-line)))
+(loop stop i (body
+	(if (eq (% i 15) 0) (body
+		(print "fizz buzz")
+	) (body
+		(if (eq (% i 3) 0) (body
+			(print "fizz")
+		) (body
+			(if (eq (% i 5) 0) (body
+				(print "buzz")
+			) (body
+				(print i)
+			))
+		))
+	))
+))

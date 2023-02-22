@@ -467,12 +467,17 @@ func GetFromValue(ds *dataStore, val dataType, index dataType) dataType {
 }
 
 func LoopListIterator(ds *dataStore, scopes int, list dataType, iteratorName dataType, body dataType) (bool, []dataType) {
-	arr := list
-	if arr.dataType == Ident {
-		arr = GetDsValue(ds, list)
+	if list.dataType == Ident {
+		list = GetDsValue(ds, list)
+	}
+	if list.dataType != List {
+		log.Fatal("Error in \"loop\" expected \"List\" found ", dataTypes[list.dataType])
+	}
+	if iteratorName.dataType != Ident {
+		log.Fatal("Error in \"loop\" expected \"Ident\" found ", dataTypes[list.dataType])
 	}
 	made := false
-	for _, v := range arr.value.([]dataType) {
+	for _, v := range list.value.([]dataType) {
 		if !made {
 			MakeVar(ds, scopes+1, iteratorName.value.(string), v, false)
 		} else {
@@ -517,7 +522,18 @@ func LoopListIndexIterator(ds *dataStore, scopes int, list dataType, indexIterat
 }
 
 func LoopTo(ds *dataStore, scopes int, max dataType, indexIterator dataType, body dataType) (bool, []dataType) {
-	maxNum := max.value.(int)
+	if max.dataType == Ident {
+		max = GetDsValue(ds, max)
+	}
+	var maxNum int
+	if max.dataType == Int {
+		maxNum = max.value.(int)
+	} else {
+		log.Fatal("Error in \"loop\", expected \"Int\" found ", dataTypes[max.dataType])
+	}
+	if indexIterator.dataType != Ident {
+		log.Fatal("Error in \"loop\" expected \"Ident\" found ", dataTypes[indexIterator.dataType])
+	}
 	made := false
 	for i := 0; i < maxNum; i++ {
 		if !made {
@@ -538,6 +554,21 @@ func LoopTo(ds *dataStore, scopes int, max dataType, indexIterator dataType, bod
 }
 
 func LoopFromTo(ds *dataStore, scopes int, start dataType, max dataType, indexIterator dataType, body dataType) (bool, []dataType) {
+	if start.dataType == Ident {
+		start = GetDsValue(ds, start)
+	}
+	if max.dataType == Ident {
+		max = GetDsValue(ds, max)
+	}
+	if start.dataType != Int {
+		log.Fatal("Error in \"loop\", expected \"Int\" found ", dataTypes[start.dataType])
+	}
+	if max.dataType != Int {
+		log.Fatal("Error in \"loop\", expected \"Int\" found ", dataTypes[max.dataType])
+	}
+	if indexIterator.dataType != Ident {
+		log.Fatal("Error in \"loop\" expected \"Ident\" found ", dataTypes[indexIterator.dataType])
+	}
 	startNum := start.value.(int)
 	maxNum := max.value.(int)
 	made := false

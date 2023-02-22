@@ -103,7 +103,6 @@ func InitBuiltins(ds *dataStore) {
 	}
 	ds.builtins["loop"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
 		if len(params) == 3 {
-			ds.inLoop = true
 			val := params[0]
 			if val.dataType == Ident {
 				val = GetDsValue(ds, val)

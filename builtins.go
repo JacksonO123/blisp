@@ -158,12 +158,12 @@ func InitBuiltins(ds *dataStore) {
 		if len(params) == 0 {
 			line := ""
 			fmt.Scanln(&line)
-			return true, []dataType{{dataType: String, value: "\"" + line + "\""}}
+			return true, []dataType{{dataType: String, value: line}}
 		} else if len(params) == 1 {
 			line := ""
 			fmt.Scanln(&line)
 			if params[0].dataType == Ident {
-				SetVar(ds, params[0].value.(string), dataType{dataType: String, value: "\"" + line + "\""})
+				SetVar(ds, params[0].value.(string), dataType{dataType: String, value: line})
 				return true, []dataType{{dataType: String, value: "\"(setting " + GetStrValue(params[0]) + " to " + line + ")\""}}
 			} else {
 				log.Fatal("Unable to assign value to", params[0])

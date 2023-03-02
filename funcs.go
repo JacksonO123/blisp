@@ -1104,6 +1104,9 @@ func MakeStruct(ds *dataStore, params ...dataType) dataType {
 }
 
 func Parse(ds *dataStore, str dataType) dataType {
+	if str.dataType == Ident {
+		str = GetDsValue(ds, str)
+	}
 	if str.dataType == String {
 		val, err := fastfloat.Parse(str.value.(string))
 		if err == nil {

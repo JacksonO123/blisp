@@ -152,16 +152,15 @@ func GetStrValue(data dataType) string {
 func Add(ds *dataStore, params ...dataType) dataType {
 	var res float64 = 0
 	for _, v := range params {
-		info := v
-		if info.dataType == Ident {
-			info = GetDsValue(ds, info)
+		if v.dataType == Ident {
+			v = GetDsValue(ds, v)
 		}
-		if info.dataType == Int {
-			res += float64(info.value.(int))
-		} else if info.dataType == Float {
-			res += info.value.(float64)
+		if v.dataType == Int {
+			res += float64(v.value.(int))
+		} else if v.dataType == Float {
+			res += v.value.(float64)
 		} else {
-			log.Fatal("Cannot + type ", dataTypes[info.dataType])
+			log.Fatal("Cannot + type ", dataTypes[v.dataType])
 		}
 	}
 	var d dataType
@@ -192,16 +191,15 @@ func Sub(ds *dataStore, params ...dataType) dataType {
 		res *= -1
 	} else {
 		for _, v := range params[1:] {
-			info := v
-			if info.dataType == Ident {
-				info = GetDsValue(ds, info)
+			if v.dataType == Ident {
+				v = GetDsValue(ds, v)
 			}
-			if info.dataType == Int {
-				res -= float64(info.value.(int))
-			} else if info.dataType == Float {
-				res -= info.value.(float64)
+			if v.dataType == Int {
+				res -= float64(v.value.(int))
+			} else if v.dataType == Float {
+				res -= v.value.(float64)
 			} else {
-				log.Fatal("Cannot - type ", dataTypes[info.dataType])
+				log.Fatal("Cannot - type ", dataTypes[v.dataType])
 			}
 		}
 	}
@@ -230,6 +228,9 @@ func Mult(ds *dataStore, params ...dataType) dataType {
 		log.Fatal("Cannot * type ", dataTypes[firstVal.dataType])
 	}
 	for _, v := range params[1:] {
+		if v.dataType == Ident {
+			v = GetDsValue(ds, v)
+		}
 		if v.dataType == Int {
 			res *= float64(v.value.(int))
 		} else if v.dataType == Float {
@@ -263,6 +264,9 @@ func Divide(ds *dataStore, params ...dataType) dataType {
 		log.Fatal("Cannot / type ", dataTypes[firstVal.dataType])
 	}
 	for _, v := range params[1:] {
+		if v.dataType == Ident {
+			v = GetDsValue(ds, v)
+		}
 		if v.dataType == Int {
 			res /= float64(v.value.(int))
 		} else if v.dataType == Float {

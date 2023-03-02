@@ -1,4 +1,5 @@
-(var s (struct k "v" rmThis true))
-(print s)
-(remove s rmThis)
-(print s)
+(func divide x y (body
+	(return (/ x y))
+))
+
+(print (divide 2 4))

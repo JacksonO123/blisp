@@ -15,8 +15,4 @@ Not including [FILENAME] [FLAGS] will start a repl
 
 The `-b` flag will benchmark the evaluation
 
-Todo:
-- [x] read file
-- [x] write file
-
 _Jackson Otto_

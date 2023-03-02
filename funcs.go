@@ -6,6 +6,8 @@ import (
 	"math"
 	"os"
 	"strings"
+
+	"github.com/valyala/fastjson/fastfloat"
 )
 
 var reserved []string = []string{
@@ -329,8 +331,7 @@ func Mod(ds *dataStore, num1 dataType, num2 dataType) dataType {
 	if num2.dataType == Ident {
 		num2 = GetDsValue(ds, num2)
 	}
-	if num2.dataType == Float {
-	} else if num2.dataType == Int {
+	if num2.dataType == Int {
 		val2 = num2.value.(int)
 	} else {
 		log.Fatal("Cannot % type", dataTypes[num2.dataType])
@@ -731,30 +732,48 @@ func Pop(ds *dataStore, list dataType) dataType {
 	}
 }
 
-func Remove(ds *dataStore, list dataType, index dataType) dataType {
+func Remove(ds *dataStore, val dataType, index dataType) dataType {
 	isIdent := false
 	name := ""
-	if list.dataType == Ident {
+	if val.dataType == Ident {
 		isIdent = true
-		name = list.value.(string)
-		list = GetDsValue(ds, list)
+		name = val.value.(string)
+		val = GetDsValue(ds, val)
 	}
-	listIndex := index.value.(int)
-	if list.dataType != List {
-		log.Fatal("Error in \"remove\" expected \"List\" found ", dataTypes[list.dataType])
-	}
-	items := list.value.([]dataType)
-	if len(items) > 0 {
-		item := items[listIndex]
-		items = append(items[:listIndex], items[listIndex+1:]...)
-		list.value = items
-		if isIdent {
-			SetVar(ds, name, list)
+	if val.dataType == List {
+		listIndex := 0
+		var listIndexData dataType
+		if index.dataType == Ident {
+			listIndexData = GetDsValue(ds, index)
 		}
-		return item
+		if listIndexData.dataType == Int {
+			listIndex = listIndexData.value.(int)
+		} else {
+			log.Fatal("Error in \"remove\" expected \"Int\" found ", dataTypes[val.dataType])
+		}
+		items := val.value.([]dataType)
+		if len(items) > 0 {
+			item := items[listIndex]
+			items = append(items[:listIndex], items[listIndex+1:]...)
+			val.value = items
+			if isIdent {
+				SetVar(ds, name, val)
+			}
+			return item
+		} else {
+			return dataType{dataType: Nil, value: nil}
+		}
+	} else if val.dataType == Struct {
+		strct := val.value.(map[string]dataType)
+		if index.dataType != Ident {
+			log.Fatal("Error in \"remove\" expected \"Ident\" found ", dataTypes[val.dataType])
+		}
+		delete(strct, index.value.(string))
+		return dataType{value: strct, dataType: Struct}
 	} else {
-		return dataType{dataType: Nil, value: nil}
+		log.Fatal("Error in \"remove\" expected \"List\" or \"Struct\" found ", dataTypes[val.dataType])
 	}
+	return dataType{value: nil, dataType: Nil}
 }
 
 func Len(ds *dataStore, list dataType) int {
@@ -1078,4 +1097,24 @@ func MakeStruct(ds *dataStore, params ...dataType) dataType {
 
 	d.value = m
 	return d
+}
+
+func Parse(ds *dataStore, str dataType) dataType {
+	if str.dataType == String {
+		val, err := fastfloat.Parse(str.value.(string))
+		if err == nil {
+			if math.Floor(val) == val {
+				return dataType{
+					value:    int(val),
+					dataType: Int,
+				}
+			} else {
+				return dataType{
+					value:    val,
+					dataType: Float,
+				}
+			}
+		}
+	}
+	return dataType{value: nil, dataType: Nil}
 }

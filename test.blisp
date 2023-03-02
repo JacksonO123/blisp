@@ -1,0 +1,4 @@
+(var s (struct k "v" rmThis true))
+(print s)
+(remove s rmThis)
+(print s)

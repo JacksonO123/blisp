@@ -3,10 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
-	"math"
 	"os"
-
-	"github.com/valyala/fastjson/fastfloat"
 )
 
 func InitBuiltins(ds *dataStore) {
@@ -74,12 +71,15 @@ func InitBuiltins(ds *dataStore) {
 		if _, ok := ds.vars[params[0].value.(string)]; !ok {
 			log.Fatal("Cannot set variable: ", params[0].value, ", variable is not initialized")
 		}
-		if len(params[2:]) == 0 {
+		if len(params) == 2 {
 			SetVar(ds, params[0].value.(string), params[1])
 			return true, []dataType{{dataType: String, value: "\"(setting " + QuoteToQuoteLiteral(params[0].value.(string)) + " to " + GetStrValue(params[1]) + ")\""}}
-		} else {
+		} else if len(params) == 3 {
 			SetValue(ds, params[0], params[1], params[2])
 			return true, []dataType{{dataType: String, value: "\"(setting " + QuoteToQuoteLiteral(params[0].value.(string)) + " at index " + GetStrValue(params[1]) + " to " + QuoteToQuoteLiteral(GetStrValue(params[1])) + ")\""}}
+		} else {
+			log.Fatal("Error in \"set\", invalid number of parameters: ", len(params))
+			return false, []dataType{}
 		}
 	}
 	ds.builtins["free"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
@@ -277,25 +277,13 @@ func InitBuiltins(ds *dataStore) {
 		return true, []dataType{{dataType: ReturnVals, value: vals}}
 	}
 	ds.builtins["parse"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
-		res := []dataType{}
-		for _, v := range params {
-			if v.dataType == String {
-				str := v.value.(string)
-				str = str[1 : len(str)-1]
-				val, err := fastfloat.Parse(str)
-				if err != nil {
-					log.Fatal(err)
-				}
-				if math.Floor(val) == val {
-					res = append(res, dataType{dataType: Int, value: int(val)})
-				} else {
-					res = append(res, dataType{dataType: Float, value: val})
-				}
-			} else {
-				log.Fatal("Cannot parse ", dataTypes[v.dataType])
-			}
+		var res dataType
+		if len(params) == 1 {
+			res = Parse(ds, params[0])
+		} else {
+			log.Fatal("Invalid number of parameters to \"parse\". Expected 1 found ", len(params))
 		}
-		return true, res
+		return true, []dataType{res}
 	}
 	ds.builtins["<"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
 		if len(params) != 2 {

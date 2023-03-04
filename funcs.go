@@ -43,6 +43,17 @@ var reserved []string = []string{
 	"not",
 	"func",
 	"return",
+	"parse",
+	"<",
+	">",
+	"<=",
+	">=",
+	"read",
+	"write",
+	"substr",
+	"struct",
+	"shift",
+	"this",
 }
 
 func GetArr(tokens []token) (dataType, int) {
@@ -118,6 +129,29 @@ func PrintArr(data dataType) {
 	fmt.Print("]")
 }
 
+func GetStructKeys(s map[string]dataType) []string {
+	res := make([]string, 0, len(s))
+	for k := range s {
+		res = append(res, k)
+	}
+	return res
+}
+
+func PrintStruct(ds *dataStore, val dataType) {
+	if val.dataType == Struct {
+		s := val.value.(map[string]dataType)
+		keys := GetStructKeys(s)
+		fmt.Println("{")
+		for _, key := range keys {
+			fmt.Print("\t" + key + ": ")
+			Print(ds, s[key])
+		}
+		fmt.Println("}")
+	} else {
+		log.Fatal("Unable to PrintStruct for type ", dataTypes[val.dataType])
+	}
+}
+
 func Print(ds *dataStore, params ...dataType) {
 	for i, v := range params {
 		if v.dataType == Ident {
@@ -128,6 +162,8 @@ func Print(ds *dataStore, params ...dataType) {
 		}
 		if v.dataType == List {
 			PrintArr(v)
+		} else if v.dataType == Struct {
+			PrintStruct(ds, v)
 		} else {
 			os.Stdout.Write([]byte(fmt.Sprint(v.value)))
 		}
@@ -610,6 +646,49 @@ func LoopFromTo(ds *dataStore, scopes int, start dataType, max dataType, indexIt
 	return false, []dataType{}
 }
 
+func CompareLists(ds *dataStore, val1 dataType, val2 dataType) bool {
+	list1 := val1.value.([]dataType)
+	list2 := val2.value.([]dataType)
+	if len(list1) != len(list2) {
+		return false
+	}
+	for i := 0; i < len(list1); i++ {
+		if !Eq(ds, list1[i], list2[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+func CompareStructs(ds *dataStore, val1 dataType, val2 dataType) bool {
+	s1 := val1.value.(map[string]dataType)
+	s1Keys := GetStructKeys(s1)
+	s2 := val1.value.(map[string]dataType)
+	s2Keys := GetStructKeys(s2)
+	if len(s1Keys) != len(s2Keys) {
+		return false
+	}
+	for _, key := range s1Keys {
+		_, ok := s2[key]
+		if !ok {
+			return false
+		}
+		if !Eq(ds, s1[key], s2[key]) {
+			return false
+		}
+	}
+	for _, key := range s2Keys {
+		_, ok := s1[key]
+		if !ok {
+			return false
+		}
+		if !Eq(ds, s1[key], s2[key]) {
+			return false
+		}
+	}
+	return true
+}
+
 func Eq(ds *dataStore, params ...dataType) bool {
 	eq := true
 	for i := 0; i < len(params)-1; i++ {
@@ -621,8 +700,32 @@ func Eq(ds *dataStore, params ...dataType) bool {
 		if val2.dataType == Ident {
 			val2 = GetDsValue(ds, val2)
 		}
-		if val1.value != val2.value {
+		if val1.dataType == Ident {
+			log.Fatal("Cannot compare unknown value ", val1.value)
+		}
+		if val2.dataType == Ident {
+			log.Fatal("Cannot compare unknown value ", val2.value)
+		}
+		if val1.dataType == List {
+			if val2.dataType == List {
+				eq = CompareLists(ds, val1, val2)
+			} else {
+				log.Fatal("Cannot compare types \"List\" and ", dataTypes[val2.dataType])
+			}
+		} else if val2.dataType == List {
+			log.Fatal("Cannot compare types \"List\" and ", dataTypes[val1.dataType])
+		} else if val1.dataType == Struct {
+			if val2.dataType == Struct {
+				eq = CompareStructs(ds, val1, val2)
+			} else {
+				log.Fatal("Cannot compare types \"Struct\" and ", dataTypes[val2.dataType])
+			}
+		} else if val2.dataType == Struct {
+			log.Fatal("Cannot compare types \"Struct\" and ", dataTypes[val1.dataType])
+		} else if val1.value != val2.value {
 			eq = false
+		}
+		if !eq {
 			break
 		}
 	}
@@ -689,7 +792,7 @@ func ListFunc(ds *dataStore, f func(ds *dataStore, list []dataType, val ...dataT
 		}
 		return list
 	} else {
-		log.Fatal("Error in \"append\", expected type \"List\" found ", dataTypes[list.dataType])
+		log.Fatal("Error in \"append\" or \"prepend\", expected type \"List\" found ", dataTypes[list.dataType])
 	}
 	return dataType{dataType: Nil, value: nil}
 }
@@ -732,7 +835,7 @@ func Pop(ds *dataStore, list dataType) dataType {
 		}
 		return val
 	} else {
-		return dataType{dataType: Nil, value: nil}
+		return dataType{dataType: List, value: []dataType{}}
 	}
 }
 
@@ -1124,4 +1227,31 @@ func Parse(ds *dataStore, str dataType) dataType {
 		}
 	}
 	return dataType{value: nil, dataType: Nil}
+}
+
+func Shift(ds *dataStore, arr dataType) dataType {
+	isIdent := false
+	name := ""
+	if arr.dataType == Ident {
+		isIdent = true
+		name = arr.value.(string)
+		arr = GetDsValue(ds, arr)
+	}
+	if arr.dataType != List {
+		log.Fatal("Error in \"shift\", expected \"List\" found ", dataTypes[arr.dataType])
+	}
+	list := arr.value.([]dataType)
+	if len(list) == 0 {
+		return dataType{dataType: List, value: []dataType{}}
+	}
+	val := list[0]
+	list = list[1:]
+	dt := dataType{
+		dataType: List,
+		value:    list,
+	}
+	if isIdent {
+		SetVar(ds, name, dt)
+	}
+	return val
 }

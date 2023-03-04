@@ -333,4 +333,10 @@ func InitBuiltins(ds *dataStore) {
 	ds.builtins["struct"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
 		return true, []dataType{MakeStruct(ds, params...)}
 	}
+	ds.builtins["shift"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		if len(params) != 1 {
+			log.Fatal("Invalid number of parameters to \"shift\". Expected 1 found ", len(params))
+		}
+		return true, []dataType{Shift(ds, params[0])}
+	}
 }

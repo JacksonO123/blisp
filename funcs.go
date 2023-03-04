@@ -1033,10 +1033,10 @@ func MakeFunction(ds *dataStore, scopes int, name dataType, data []dataType) (bo
 	return true, &f
 }
 
-func CallFunc(ds *dataStore, scopes int, name string, params []dataType) (bool, []dataType) {
+func CallFunc(ds *dataStore, scopes int, name dataType, params []dataType) (bool, []dataType) {
 	highestVarIndex := 0
-	varWithName := ds.vars[name]
-	funcWithName := ds.funcs[name]
+	varWithName := ds.vars[name.value.(string)]
+	funcWithName := ds.funcs[name.value.(string)]
 	var f function
 	for i := len(varWithName); i > 0; i-- {
 		v := varWithName[i-1]
@@ -1045,11 +1045,23 @@ func CallFunc(ds *dataStore, scopes int, name string, params []dataType) (bool, 
 			break
 		}
 	}
-	if highestVarIndex > len(funcWithName)-1 {
+	if highestVarIndex > int(math.Max(float64(len(funcWithName)-1), 0)) {
 		f = varWithName[highestVarIndex].data.value.(function)
 	} else {
 		if len(funcWithName) == 0 {
-			log.Fatal("Unknown function: \"", name, "\"")
+			if name.dataType == Ident {
+				newName := GetDsValue(ds, name)
+				if newName.dataType != String && newName.dataType != Ident {
+					log.Fatal("Unknown function1: \"", newName.value, "\"")
+				}
+				newName.dataType = Ident
+				if f, ok := ds.builtins[newName.value.(string)]; ok {
+					return f(ds, scopes, params)
+				} else {
+					return CallFunc(ds, scopes, newName, params)
+				}
+			}
+			log.Fatal("Unknown function2: \"", name, "\"")
 		}
 		f = funcWithName[len(funcWithName)-1]
 	}

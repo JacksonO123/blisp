@@ -260,7 +260,7 @@ func EvalFunc(ds *dataStore, scopes int, info []dataType) (bool, bool, []dataTyp
 		h, v := f(ds, scopes, info[1:])
 		return false, h, v
 	} else {
-		h, v := CallFunc(ds, scopes, info[0].value.(string), info[1:])
+		h, v := CallFunc(ds, scopes, info[0], info[1:])
 		return true, h, v
 	}
 }

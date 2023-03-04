@@ -1,13 +1,5 @@
-(func new-queue (body
-	(return (struct items []))
+(func apply f x y (body
+	(return (f x y))
 ))
 
-(func enqueue queue item (body
-	(set queue items (append (get queue items) item))
-	(return queue)
-))
-
-(var queue (new-queue))
-(print queue)
-(set queue (enqueue queue 2))
-(print queue)
+(apply print 2 3)

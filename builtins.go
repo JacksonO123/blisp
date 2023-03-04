@@ -263,7 +263,10 @@ func InitBuiltins(ds *dataStore) {
 		if len(params) < 2 {
 			log.Fatal("Invalid number of parameters to \"func\". Expected 3 or more found ", len(params))
 		}
-		MakeFunction(ds, scopes, params[0], params[1:])
+		returned, f := MakeFunction(ds, scopes, params[0], params[1:])
+		if returned {
+			return true, []dataType{{value: *f, dataType: Function}}
+		}
 		return true, []dataType{{dataType: String, value: "\"(setting function " + params[0].value.(string) + " with " + GetStrValue(dataType{dataType: List, value: params[1:]}) + ")\""}}
 	}
 	ds.builtins["return"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
@@ -338,5 +341,11 @@ func InitBuiltins(ds *dataStore) {
 			log.Fatal("Invalid number of parameters to \"shift\". Expected 1 found ", len(params))
 		}
 		return true, []dataType{Shift(ds, params[0])}
+	}
+	ds.builtins["."] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		if len(params) < 2 {
+			log.Fatal("Invalid number of parameters to \".\". Expected 2 or more found ", len(params))
+		}
+		return CallProp(ds, scopes, params)
 	}
 }

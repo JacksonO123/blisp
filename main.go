@@ -26,6 +26,7 @@ var dataTypes []string = []string{
 	"Struct",
 	"BreakVals",
 	"ReturnVals",
+	"Function",
 }
 
 const (
@@ -41,6 +42,7 @@ const (
 	Struct
 	BreakVals  // []dataType
 	ReturnVals // []dataType
+	Function
 )
 
 type dataType struct {
@@ -116,6 +118,7 @@ func RemoveScopedVars(ds *dataStore, keepScopes int) {
 				ds.vars[v] = ds.vars[v][:len(ds.vars[v])-1]
 			}
 		}
+		ds.scopedRedef = ds.scopedRedef[:len(ds.scopedRedef)-1]
 		for _, v := range varArrToFree {
 			FreeVar(ds, v)
 		}
@@ -129,6 +132,7 @@ func RemoveScopedVars(ds *dataStore, keepScopes int) {
 				ds.funcs[v] = ds.funcs[v][:len(ds.funcs[v])-1]
 			}
 		}
+		ds.scopedRedefFuncs = ds.scopedRedefFuncs[:len(ds.scopedRedefFuncs)-1]
 		for _, v := range funcArrToFree {
 			FreeFunc(ds, v)
 		}
@@ -256,7 +260,7 @@ func EvalFunc(ds *dataStore, scopes int, info []dataType) (bool, bool, []dataTyp
 		h, v := f(ds, scopes, info[1:])
 		return false, h, v
 	} else {
-		h, v := CallFunc(ds, scopes+1, info[0].value.(string), info[1:])
+		h, v := CallFunc(ds, scopes, info[0].value.(string), info[1:])
 		return true, h, v
 	}
 }

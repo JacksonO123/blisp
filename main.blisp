@@ -1,17 +1,13 @@
-(print "Enter stopping number:")
-(var stop (parse (scan-line)))
-(loop stop i (body
-	(if (eq (% i 15) 0) (body
-		(print "fizz buzz")
-	) (body
-		(if (eq (% i 3) 0) (body
-			(print "fizz")
-		) (body
-			(if (eq (% i 5) 0) (body
-				(print "buzz")
-			) (body
-				(print i)
-			))
-		))
-	))
+(func new-queue (body
+	(return (struct items []))
 ))
+
+(func enqueue queue item (body
+	(set queue items (append (get queue items) item))
+	(return queue)
+))
+
+(var queue (new-queue))
+(print queue)
+(set queue (enqueue queue 2))
+(print queue)

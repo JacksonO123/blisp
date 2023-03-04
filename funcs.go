@@ -54,6 +54,7 @@ var reserved []string = []string{
 	"struct",
 	"shift",
 	"this",
+	".",
 }
 
 func GetArr(tokens []token) (dataType, int) {
@@ -392,6 +393,10 @@ func MakeVar(ds *dataStore, scopes int, name string, data dataType, isConst bool
 
 	if len(name) == 0 {
 		log.Fatal("Variable must have name")
+		return
+	}
+
+	if name == "_" {
 		return
 	}
 
@@ -986,50 +991,78 @@ func Not(ds *dataStore, val dataType) bool {
 	return !val.value.(bool)
 }
 
-func MakeFunction(ds *dataStore, scopes int, name dataType, data []dataType) {
+func MakeFunction(ds *dataStore, scopes int, name dataType, data []dataType) (bool, *function) {
 	if name.dataType != Ident {
 		log.Fatal("Function named " + fmt.Sprint(name.value) + " must be a variable name")
-		return
+		return false, nil
 	}
 
 	nameStr := name.value.(string)
+	save := true
+	if nameStr == "_" {
+		save = false
+	}
 
 	if scopes < len(ds.scopedFuncs) && StrArrIncludes(ds.scopedFuncs[scopes], nameStr) {
 		log.Fatal("Function already initialized: " + nameStr)
-		return
+		return false, nil
 	}
 
 	if StrArrIncludes(reserved, nameStr) {
 		log.Fatal("Function name \"" + nameStr + "\" is reserved")
-		return
+		return false, nil
 	}
 
 	f := function{name: nameStr, body: data[len(data)-1].value.([]token), params: data[0 : len(data)-1]}
 
-	ds.funcs[nameStr] = append(ds.funcs[nameStr], f)
-	for len(ds.scopedFuncs) < scopes {
-		ds.scopedFuncs = append(ds.scopedFuncs, []string{})
+	if save {
+		ds.funcs[nameStr] = append(ds.funcs[nameStr], f)
+		for len(ds.scopedFuncs) < scopes {
+			ds.scopedFuncs = append(ds.scopedFuncs, []string{})
+		}
+		for len(ds.scopedRedefFuncs) < scopes {
+			ds.scopedRedefFuncs = append(ds.scopedRedefFuncs, []string{})
+		}
+		if _, ok := ds.funcs[nameStr]; ok {
+			ds.scopedRedefFuncs[scopes-1] = append(ds.scopedRedefFuncs[scopes-1], nameStr)
+		} else {
+			ds.scopedFuncs[scopes-1] = append(ds.scopedFuncs[scopes-1], nameStr)
+		}
+		return false, nil
 	}
-	for len(ds.scopedRedefFuncs) < scopes {
-		ds.scopedRedefFuncs = append(ds.scopedRedefFuncs, []string{})
-	}
-	if _, ok := ds.funcs[nameStr]; ok {
-		ds.scopedRedefFuncs[scopes-1] = append(ds.scopedRedefFuncs[scopes-1], nameStr)
-	} else {
-		ds.scopedFuncs[scopes-1] = append(ds.scopedFuncs[scopes-1], nameStr)
-	}
+	return true, &f
 }
 
 func CallFunc(ds *dataStore, scopes int, name string, params []dataType) (bool, []dataType) {
-	if len(ds.funcs[name]) == 0 {
-		log.Fatal("Unknown function: \"", name, "\"")
+	highestVarIndex := 0
+	varWithName := ds.vars[name]
+	funcWithName := ds.funcs[name]
+	var f function
+	for i := len(varWithName); i > 0; i-- {
+		v := varWithName[i-1]
+		if v.data.dataType == Function {
+			highestVarIndex = i - 1
+			break
+		}
 	}
-	f := ds.funcs[name][len(ds.funcs[name])-1]
-	for i, v := range f.params {
-		MakeVar(ds, scopes, v.value.(string), GetDsValue(ds, params[i]), false)
+	if highestVarIndex > len(funcWithName)-1 {
+		f = varWithName[highestVarIndex].data.value.(function)
+	} else {
+		if len(funcWithName) == 0 {
+			log.Fatal("Unknown function: \"", name, "\"")
+		}
+		f = funcWithName[len(funcWithName)-1]
 	}
-	hasReturn, toReturn := Eval(ds, f.body, scopes, false)
+
+	if len(f.params) != len(params) {
+		log.Fatal("Error in \"", name, "\", expected ", len(f.params), " params found ", len(params))
+	}
+
+	for i := 0; i < len(f.params); i++ {
+		MakeVar(ds, scopes+1, f.params[i].value.(string), GetDsValue(ds, params[i]), false)
+	}
 	ds.inFunc = false
+	hasReturn, toReturn := Eval(ds, f.body, scopes, false)
 	return hasReturn, toReturn
 }
 
@@ -1254,4 +1287,36 @@ func Shift(ds *dataStore, arr dataType) dataType {
 		SetVar(ds, name, dt)
 	}
 	return val
+}
+
+func CallProp(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+	obj := params[0]
+	if obj.dataType == Ident {
+		obj = GetDsValue(ds, obj)
+	}
+	if obj.dataType != Struct {
+		log.Fatal("Error in \".\", expected \"Struct\" found ", dataTypes[obj.dataType])
+	}
+	key := params[1]
+	if key.dataType != Ident {
+		log.Fatal("Error in \".\", expected \"Ident\" found ", dataTypes[obj.dataType])
+	}
+
+	objMap := obj.value.(map[string]dataType)
+	fn, ok := objMap[key.value.(string)]
+	if !ok {
+		log.Fatal(key.value, " is not a property of ", objMap)
+	}
+	f := fn.value.(function)
+
+	if len(f.params) != len(params)-2 {
+		log.Fatal("Error in \".\", expected ", len(f.params), " params found ", len(params)-2)
+	}
+
+	for i := 2; i < len(params); i++ {
+		MakeVar(ds, scopes+1, f.params[i-2].value.(string), GetDsValue(ds, params[i]), false)
+	}
+	ds.inFunc = false
+	hasReturn, toReturn := Eval(ds, f.body, scopes+1, false)
+	return hasReturn, toReturn
 }

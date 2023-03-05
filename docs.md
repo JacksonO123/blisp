@@ -10,6 +10,7 @@
 `-`:
 - Subtracts any number of parameters
 - Parameters must be type `Int` or `Float`
+- If one parameter is passed, `-` returns the opposite of the number
 
 `*`:
 - Multiplies any number of parameters
@@ -139,6 +140,7 @@
 	- Second parameter is type `Int`
 - First parameter is type `Struct`
 	- Second parameter is type `Ident` that is a property on the first parameter
+- Returns removed item
 
 `len`:
 - Takes one parameter of type `List`
@@ -161,6 +163,7 @@
 `func`:
 - Takes 2 or more parameters
 - First parameter is function name
+- If function name is `_`, function is not saved, and function variable is returned
 - Second and on (not including last parameter) are parameter names of type `Ident`
 - Last parameter is `body`
 
@@ -216,6 +219,13 @@
 - Even number parameters:
 	- Any type
 	- Value for previous parameter key
+
+`.`:
+- Takes two or more parameters
+- First parameter is struct
+- Second parameter is attribute on struct that is a function
+- When calling method on struct, first parameter is struct reference
+- 3rd parameter and on are passed to struct method
 
 Struct Example:
 ```lisp

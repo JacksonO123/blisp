@@ -938,11 +938,8 @@ func SetValue(ds *dataStore, val dataType, index dataType, value dataType) (bool
 		}
 
 		m := val.value.(map[string]dataType)
-		if _, ok := m[index.value.(string)]; ok {
-			m[index.value.(string)] = value
-		} else {
-			log.Fatal("Error in \"set\", property ", index.value.(string), " not found on ", m)
-		}
+		m[index.value.(string)] = value
+
 		val.value = m
 	} else if val.dataType == List {
 		list := val.value.([]dataType)
@@ -1039,6 +1036,7 @@ func CallFunc(ds *dataStore, scopes int, name dataType, params []dataType) (bool
 	highestVarIndex := 0
 	varWithName := ds.vars[name.value.(string)]
 	funcWithName := ds.funcs[name.value.(string)]
+	ds.inFunc = true
 	var f function
 	for i := len(varWithName); i > 0; i-- {
 		v := varWithName[i-1]
@@ -1053,8 +1051,8 @@ func CallFunc(ds *dataStore, scopes int, name dataType, params []dataType) (bool
 		if len(funcWithName) == 0 {
 			if name.dataType == Ident {
 				newName := GetDsValue(ds, name)
-				if newName.dataType == Function {
-					// return CallFunc(ds, scopes, name, params)
+				if newName.dataType == Func {
+					return CallInlineFunc(ds, scopes, name.value.(string), newName.value.(function), params)
 				} else if newName.dataType != String && newName.dataType != Ident {
 					log.Fatal("Unknown function1: \"", newName.value, "\"")
 				}
@@ -1070,6 +1068,10 @@ func CallFunc(ds *dataStore, scopes int, name dataType, params []dataType) (bool
 		f = funcWithName[len(funcWithName)-1]
 	}
 
+	return CallInlineFunc(ds, scopes, name.value.(string), f, params)
+}
+
+func CallInlineFunc(ds *dataStore, scopes int, name string, f function, params []dataType) (bool, []dataType) {
 	if len(f.params) != len(params) {
 		log.Fatal("Error in \"", name, "\", expected ", len(f.params), " params found ", len(params))
 	}
@@ -1077,8 +1079,8 @@ func CallFunc(ds *dataStore, scopes int, name dataType, params []dataType) (bool
 	for i := 0; i < len(f.params); i++ {
 		MakeVar(ds, scopes+1, f.params[i].value.(string), GetDsValue(ds, params[i]), false)
 	}
-	ds.inFunc = false
 	hasReturn, toReturn := Eval(ds, f.body, scopes, false)
+	ds.inFunc = false
 	return hasReturn, toReturn
 }
 
@@ -1326,7 +1328,7 @@ func CallProp(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
 	f := fn.value.(function)
 
 	if len(f.params) != len(params)-1 {
-		log.Fatal("Error in \".\", expected ", len(f.params), " params found ", len(params)-2)
+		log.Fatal("Error in \".\", expected ", len(f.params)-1, " params found ", len(params)-2)
 	}
 
 	MakeVar(ds, scopes+1, f.params[0].value.(string), GetDsValue(ds, params[0]), false)

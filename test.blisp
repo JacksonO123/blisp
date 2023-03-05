@@ -1,0 +1,3 @@
+(var h (struct))
+(set h hi 2)
+(print h)

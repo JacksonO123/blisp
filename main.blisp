@@ -1,24 +1,62 @@
-(func create-stack (body
+(func create-queue (body
 	(return
 		(struct
 			items []
-			push (func _ this item (body
-				(set this items (append (get this items) item))
+			print (func _ queue (body
+				(print "----")
+				(loop (get queue items) item (body
+					(print (get item value) (get item priority))
+				))
+				(print "----")
 			))
-			pop (func _ this (body
-				(var newItems (get this items))
-				(pop newItems)
-				(set this items newItems)
+			enqueue (func _ queue item (body
+				(var res (append (get queue items) item))
+				(set queue items res)
 			))
-			print (func _ this (body
-				(print (get this items))
+			dequeue (func _ queue (body
+				(var newItems (get queue items))
+				(var res (shift newItems))
+				(set queue items newItems)
+				(return res)
+			))
+			p-dequeue (func _ queue f (body
+				(var res 0)
+				(loop (get queue items) i item (body
+					(if (not (eq i 0)) (body
+						(if (f item (get (get queue items) res)) (body
+							(set res i)
+						))
+					))
+				))
+				(var items (get queue items))
+				(var removed (remove items res))
+				(set queue items items)
+				(return removed)
 			))
 		)
 	)
 ))
 
-(var stack (create-stack))
-(. stack push 2)
-(. stack print)
-(. stack pop)
-(. stack print)
+(func create-priority x y (body
+	(return
+		(struct
+			value x
+			priority y
+		)
+	)
+))
+
+(func is-greater x y (body
+	(return (> (get x priority) (get y priority)))
+))
+
+(var q (create-queue))
+(. q enqueue (create-priority "value 1" 0))
+(. q enqueue (create-priority "value 2" 2))
+(. q enqueue (create-priority "value 3" 4))
+(. q enqueue (create-priority "value 4" 2))
+(. q print)
+(print (. q p-dequeue is-greater))
+(. q print)
+(. q dequeue)
+(. q print)

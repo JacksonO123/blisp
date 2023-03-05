@@ -1,15 +1,19 @@
-(var funcs [])
-(print "Enter 3 function names")
-(loop 3 _ (body
-	(append funcs (scan-line))
+(func create-stack (body
+	(return
+		(struct
+			items []
+			push (func _ this item (body
+				(set this items (append (get this items) item))
+			))
+			pop (func _ this (body
+				(pop (get this items))
+			))
+			print (func _ this (body
+				(print (get this items))
+			))
+		)
+	)
 ))
-(print funcs)
 
-(print "Value to func on")
-(var val (scan-line))
-
-(loop funcs f (body
-	(print (type val))
-	(set val (f val))
-	(print val)
-))
+(var stack (create-stack))
+(. stack print)

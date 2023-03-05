@@ -1040,7 +1040,7 @@ func CallFunc(ds *dataStore, scopes int, name dataType, params []dataType) (bool
 	var f function
 	for i := len(varWithName); i > 0; i-- {
 		v := varWithName[i-1]
-		if v.data.dataType == Function {
+		if v.data.dataType == Func {
 			highestVarIndex = i - 1
 			break
 		}

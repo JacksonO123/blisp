@@ -1,3 +1,1 @@
-(var h (struct))
-(set h hi 2)
-(print h)
+((func _ x (body (print x))) 2)

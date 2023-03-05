@@ -265,7 +265,7 @@ func InitBuiltins(ds *dataStore) {
 		}
 		returned, f := MakeFunction(ds, scopes, params[0], params[1:])
 		if returned {
-			return true, []dataType{{value: *f, dataType: Function}}
+			return true, []dataType{{value: *f, dataType: Func}}
 		}
 		return true, []dataType{{dataType: String, value: "\"(setting function " + params[0].value.(string) + " with " + GetStrValue(dataType{dataType: List, value: params[1:]}) + ")\""}}
 	}

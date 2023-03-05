@@ -42,7 +42,6 @@ const (
 	Struct
 	BreakVals  // []dataType
 	ReturnVals // []dataType
-	Function
 )
 
 type dataType struct {
@@ -256,7 +255,11 @@ func GetDataTypeFromToken(t token) dataType {
 
 func EvalFunc(ds *dataStore, scopes int, info []dataType) (bool, bool, []dataType) {
 	ds.inFunc = true
-	if f, ok := ds.builtins[info[0].value.(string)]; ok {
+	fmt.Println(dataTypes[info[0].dataType])
+	if info[0].dataType == Func {
+		hasReturn, returnValue := CallInlineFunc(ds, scopes, "lambda", info[0].value.(function), info[1:])
+		return true, hasReturn, returnValue
+	} else if f, ok := ds.builtins[info[0].value.(string)]; ok {
 		h, v := f(ds, scopes, info[1:])
 		isCustom := false
 		if info[0].value.(string) == "." {

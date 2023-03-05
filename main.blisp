@@ -6,7 +6,9 @@
 				(set this items (append (get this items) item))
 			))
 			pop (func _ this (body
-				(pop (get this items))
+				(var newItems (get this items))
+				(pop newItems)
+				(set this items newItems)
 			))
 			print (func _ this (body
 				(print (get this items))
@@ -16,4 +18,7 @@
 ))
 
 (var stack (create-stack))
+(. stack push 2)
+(. stack print)
+(. stack pop)
 (. stack print)

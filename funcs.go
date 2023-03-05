@@ -53,7 +53,6 @@ var reserved []string = []string{
 	"substr",
 	"struct",
 	"shift",
-	"this",
 	".",
 }
 

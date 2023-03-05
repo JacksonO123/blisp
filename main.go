@@ -258,7 +258,11 @@ func EvalFunc(ds *dataStore, scopes int, info []dataType) (bool, bool, []dataTyp
 	ds.inFunc = true
 	if f, ok := ds.builtins[info[0].value.(string)]; ok {
 		h, v := f(ds, scopes, info[1:])
-		return false, h, v
+		isCustom := false
+		if info[0].value.(string) == "." {
+			isCustom = true
+		}
+		return isCustom, h, v
 	} else {
 		h, v := CallFunc(ds, scopes, info[0], info[1:])
 		return true, h, v

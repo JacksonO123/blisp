@@ -1,5 +1,15 @@
-(func apply f x y (body
-	(return (f x y))
+(var funcs [])
+(print "Enter 3 function names")
+(loop 3 _ (body
+	(append funcs (scan-line))
 ))
+(print funcs)
 
-(apply print 2 3)
+(print "Value to func on")
+(var val (scan-line))
+
+(loop funcs f (body
+	(print (type val))
+	(set val (f val))
+	(print val)
+))

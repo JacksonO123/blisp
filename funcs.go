@@ -427,6 +427,9 @@ func MakeVar(ds *dataStore, scopes int, name string, data dataType, isConst bool
 }
 
 func SetVar(ds *dataStore, name string, data dataType) {
+	if name == "_" {
+		return
+	}
 	if v, ok := ds.vars[name]; !ok {
 		log.Fatal("Variable not initialized: ", name)
 		return
@@ -1051,7 +1054,9 @@ func CallFunc(ds *dataStore, scopes int, name dataType, params []dataType) (bool
 		if len(funcWithName) == 0 {
 			if name.dataType == Ident {
 				newName := GetDsValue(ds, name)
-				if newName.dataType != String && newName.dataType != Ident {
+				if newName.dataType == Function {
+					// return CallFunc(ds, scopes, name, params)
+				} else if newName.dataType != String && newName.dataType != Ident {
 					log.Fatal("Unknown function1: \"", newName.value, "\"")
 				}
 				newName.dataType = Ident
@@ -1321,14 +1326,14 @@ func CallProp(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
 	}
 	f := fn.value.(function)
 
-	if len(f.params) != len(params)-2 {
+	if len(f.params) != len(params)-1 {
 		log.Fatal("Error in \".\", expected ", len(f.params), " params found ", len(params)-2)
 	}
 
+	MakeVar(ds, scopes+1, f.params[0].value.(string), GetDsValue(ds, params[0]), false)
 	for i := 2; i < len(params); i++ {
-		MakeVar(ds, scopes+1, f.params[i-2].value.(string), GetDsValue(ds, params[i]), false)
+		MakeVar(ds, scopes+1, f.params[i-1].value.(string), GetDsValue(ds, params[i]), false)
 	}
 	ds.inFunc = false
-	hasReturn, toReturn := Eval(ds, f.body, scopes+1, false)
-	return hasReturn, toReturn
+	return Eval(ds, f.body, scopes+1, false)
 }

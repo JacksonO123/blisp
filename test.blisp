@@ -1,1 +1,0 @@
-((func _ x (body (print x))) 2)

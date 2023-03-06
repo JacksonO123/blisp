@@ -245,6 +245,11 @@ func GetDataTypeFromToken(t token) dataType {
 			d.dataType = Float
 			d.value = t.value.(float64)
 		}
+	case NilToken:
+		{
+			d.dataType = Nil
+			d.value = nil
+		}
 	default:
 		{
 			log.Fatal("Cannot infer datatype from: ", t)
@@ -322,7 +327,8 @@ func Eval(ds *dataStore, code []token, scopes int, root bool) (bool, []dataType)
 			code[i].tokenType == StringToken ||
 			code[i].tokenType == IntToken ||
 			code[i].tokenType == BoolToken ||
-			code[i].tokenType == FloatToken {
+			code[i].tokenType == FloatToken ||
+			code[i].tokenType == NilToken {
 			funcCall[len(funcCall)-1] = append(funcCall[len(funcCall)-1], GetDataTypeFromToken(code[i]))
 		}
 		if len(funcCall) == 0 {

@@ -1,0 +1,4 @@
+(var h 2)
+(print h)
+(set h nil)
+(print h)

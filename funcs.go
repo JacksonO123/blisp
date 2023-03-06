@@ -157,7 +157,7 @@ func Print(ds *dataStore, params ...dataType) {
 		if v.dataType == Ident {
 			v = GetDsValue(ds, v)
 			if v.dataType == Ident {
-				log.Fatal("Unknown value: ", v.value.(string))
+				log.Fatal("Unknown value: ", v.value)
 			}
 		}
 		if v.dataType == List {

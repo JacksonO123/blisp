@@ -19,6 +19,7 @@ const (
 	BoolToken
 	IntToken
 	FloatToken
+	NilToken
 )
 
 type token struct {
@@ -65,6 +66,9 @@ func GetToken(val string) token {
 			t.tokenType = BoolToken
 			t.value = false
 			return t
+		} else if val == "nil" {
+			t.tokenType = NilToken
+			t.value = nil
 		} else {
 			num, err := fastfloat.Parse(val)
 			if err == nil {

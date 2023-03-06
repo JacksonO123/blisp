@@ -39,7 +39,7 @@ func InitBuiltins(ds *dataStore) {
 		strVal := params[0].value.(string)
 		if len(params) == 1 {
 			toEval := PrepQuotesString(strVal)
-			hasReturn, toReturn := Eval(ds, Tokenize(toEval), scopes, false)
+			hasReturn, toReturn := Eval(ds, Tokenize(toEval), scopes)
 			if !hasReturn {
 				return true, []dataType{{dataType: String, value: "\"(evaluating " + QuoteToQuoteLiteral(strVal) + ")\""}}
 			}
@@ -47,7 +47,7 @@ func InitBuiltins(ds *dataStore) {
 		} else {
 			for _, v := range params {
 				strVal := v.value.(string)
-				Eval(ds, Tokenize(strVal), scopes, false)
+				Eval(ds, Tokenize(strVal), scopes)
 			}
 			toPrint := ""
 			for i, v := range params {
@@ -183,7 +183,7 @@ func InitBuiltins(ds *dataStore) {
 		return false, []dataType{}
 	}
 	ds.builtins["body"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
-		return Eval(ds, params[0].value.([]token), scopes, false)
+		return Eval(ds, params[0].value.([]token), scopes)
 	}
 	ds.builtins["eq"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
 		if len(params) > 0 {
@@ -264,6 +264,7 @@ func InitBuiltins(ds *dataStore) {
 			log.Fatal("Invalid number of parameters to \"func\". Expected 3 or more found ", len(params))
 		}
 		returned, f := MakeFunction(ds, scopes, params[0], params[1:])
+		// f can be nil, but only when returned is false
 		if returned {
 			return true, []dataType{{value: *f, dataType: Func}}
 		}
@@ -347,5 +348,8 @@ func InitBuiltins(ds *dataStore) {
 			log.Fatal("Invalid number of parameters to \".\". Expected 2 or more found ", len(params))
 		}
 		return CallProp(ds, scopes, params)
+	}
+	ds.builtins["while"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		return WhileLoop(ds, scopes, params)
 	}
 }

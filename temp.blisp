@@ -1,0 +1,23 @@
+(func linked-list (body
+	(print "making")
+	(return
+		(struct
+			root nil
+			add (func _ this val (body
+				(print (eq (get this root) nil))
+			))
+		)
+	)
+))
+
+(func node val (body
+	(return
+		(struct
+			val val
+			next
+		)
+	)
+))
+
+(var list (linked-list))
+(. list add 2)

@@ -532,7 +532,7 @@ func LoopListIterator(ds *dataStore, scopes int, list dataType, iteratorName dat
 			SetVar(ds, iteratorName.value.(string), v)
 		}
 		made = true
-		hasReturn, val := Eval(ds, body.value.([]token), scopes, false)
+		hasReturn, val := Eval(ds, body.value.([]token), scopes)
 		if hasReturn && len(val) > 0 && (val[0].dataType == BreakVals || val[0].dataType == ReturnVals) {
 			if val[0].dataType == ReturnVals {
 				return true, []dataType{val[0]}
@@ -558,7 +558,7 @@ func LoopListIndexIterator(ds *dataStore, scopes int, list dataType, indexIterat
 			SetVar(ds, indexIterator.value.(string), dataType{dataType: Int, value: i})
 		}
 		made = true
-		hasReturn, val := Eval(ds, body.value.([]token), scopes, false)
+		hasReturn, val := Eval(ds, body.value.([]token), scopes)
 		if hasReturn && len(val) > 0 && (val[0].dataType == BreakVals || val[0].dataType == ReturnVals) {
 			if val[0].dataType == ReturnVals {
 				return true, []dataType{val[0]}
@@ -590,7 +590,7 @@ func LoopTo(ds *dataStore, scopes int, max dataType, indexIterator dataType, bod
 			SetVar(ds, indexIterator.value.(string), dataType{dataType: Int, value: i})
 		}
 		made = true
-		hasReturn, val := Eval(ds, body.value.([]token), scopes, false)
+		hasReturn, val := Eval(ds, body.value.([]token), scopes)
 		if hasReturn && len(val) > 0 && (val[0].dataType == BreakVals || val[0].dataType == ReturnVals) {
 			if val[0].dataType == ReturnVals {
 				return true, []dataType{val[0]}
@@ -642,7 +642,7 @@ func LoopFromTo(ds *dataStore, scopes int, start dataType, max dataType, indexIt
 			SetVar(ds, indexIterator.value.(string), dataType{dataType: Int, value: i})
 		}
 		made = true
-		hasReturn, val := Eval(ds, body.value.([]token), scopes, false)
+		hasReturn, val := Eval(ds, body.value.([]token), scopes)
 		if hasReturn && len(val) > 0 && (val[0].dataType == BreakVals || val[0].dataType == ReturnVals) {
 			if val[0].dataType == ReturnVals {
 				return true, []dataType{val[0]}
@@ -749,9 +749,9 @@ func If(ds *dataStore, scopes int, params ...dataType) (bool, []dataType) {
 	if info.dataType == Bool {
 		val := info.value.(bool)
 		if val {
-			hasReturn, toReturn = Eval(ds, params[1].value.([]token), scopes, false)
+			hasReturn, toReturn = Eval(ds, params[1].value.([]token), scopes)
 		} else if len(params) == 3 {
-			hasReturn, toReturn = Eval(ds, params[2].value.([]token), scopes, false)
+			hasReturn, toReturn = Eval(ds, params[2].value.([]token), scopes)
 		}
 	} else {
 		log.Fatal("Error in \"if\", expected type: \"Bool\" found ", dataTypes[info.dataType])
@@ -781,6 +781,9 @@ func PrependToList(ds *dataStore, list []dataType, data ...dataType) []dataType 
 	return list
 }
 
+// Used for mutating lists that return just the resulting list
+// if list is from a variable, it updates the variable
+// returns teh new list
 func ListFunc(ds *dataStore, f func(ds *dataStore, list []dataType, val ...dataType) []dataType, params ...dataType) dataType {
 	isIdent := false
 	name := ""
@@ -799,7 +802,7 @@ func ListFunc(ds *dataStore, f func(ds *dataStore, list []dataType, val ...dataT
 		}
 		return list
 	} else {
-		log.Fatal("Error in \"append\" or \"prepend\", expected type \"List\" found ", dataTypes[list.dataType])
+		log.Fatal("Error mutating list, expected type \"List\" found ", dataTypes[list.dataType])
 	}
 	return dataType{dataType: Nil, value: nil}
 }
@@ -812,8 +815,7 @@ func Concat(ds *dataStore, params ...dataType) string {
 			info = GetDsValue(ds, info)
 		}
 		if info.dataType == String {
-			val := info.value.(string)
-			res += val[1 : len(val)-1]
+			res += info.value.(string)
 		} else {
 			res += GetStrValue(info)
 		}
@@ -912,7 +914,7 @@ func And(ds *dataStore, params ...dataType) bool {
 	return true
 }
 
-func SetValue(ds *dataStore, val dataType, index dataType, value dataType) (bool, dataType) {
+func SetValue(ds *dataStore, val dataType, index dataType, value dataType) {
 	if value.dataType == Ident {
 		value = GetDsValue(ds, value)
 	}
@@ -961,8 +963,6 @@ func SetValue(ds *dataStore, val dataType, index dataType, value dataType) (bool
 	if setVar {
 		SetVar(ds, name, val)
 	}
-
-	return false, dataType{dataType: Nil, value: nil}
 }
 
 func Or(ds *dataStore, params ...dataType) bool {
@@ -992,7 +992,7 @@ func Not(ds *dataStore, val dataType) bool {
 
 func MakeFunction(ds *dataStore, scopes int, name dataType, data []dataType) (bool, *function) {
 	if name.dataType != Ident {
-		log.Fatal("Function named " + fmt.Sprint(name.value) + " must be a variable name")
+		log.Fatal("Function named " + fmt.Sprint(name.value) + " must be an Ident")
 		return false, nil
 	}
 
@@ -1054,7 +1054,7 @@ func CallFunc(ds *dataStore, scopes int, name dataType, params []dataType) (bool
 				if newName.dataType == Func {
 					return CallInlineFunc(ds, scopes, name.value.(string), newName.value.(function), params)
 				} else if newName.dataType != String && newName.dataType != Ident {
-					log.Fatal("Unknown function1: \"", newName.value, "\"")
+					log.Fatal("Unknown function: \"", newName.value, "\"")
 				}
 				newName.dataType = Ident
 				if f, ok := ds.builtins[newName.value.(string)]; ok {
@@ -1063,7 +1063,7 @@ func CallFunc(ds *dataStore, scopes int, name dataType, params []dataType) (bool
 					return CallFunc(ds, scopes, newName, params)
 				}
 			}
-			log.Fatal("Unknown function2: \"", name, "\"")
+			log.Fatal("Unknown function: \"", name, "\"")
 		}
 		f = funcWithName[len(funcWithName)-1]
 	}
@@ -1079,7 +1079,7 @@ func CallInlineFunc(ds *dataStore, scopes int, name string, f function, params [
 	for i := 0; i < len(f.params); i++ {
 		MakeVar(ds, scopes+1, f.params[i].value.(string), GetDsValue(ds, params[i]), false)
 	}
-	hasReturn, toReturn := Eval(ds, f.body, scopes, false)
+	hasReturn, toReturn := Eval(ds, f.body, scopes)
 	ds.inFunc = false
 	return hasReturn, toReturn
 }
@@ -1098,14 +1098,14 @@ func GetAndCompareNumbers(ds *dataStore, val1 dataType, val2 dataType, f func(nu
 	} else if val1.dataType == Float {
 		num1 = val1.value.(float64)
 	} else {
-		log.Fatal("Expected \"In\" or \"Float\" found ", dataTypes[val1.dataType])
+		log.Fatal("Expected \"Int\" or \"Float\" found ", dataTypes[val1.dataType])
 	}
 	if val2.dataType == Int {
 		num2 = float64(val2.value.(int))
 	} else if val2.dataType == Float {
 		num2 = val2.value.(float64)
 	} else {
-		log.Fatal("Expected \"In\" or \"Float\" found ", dataTypes[val2.dataType])
+		log.Fatal("Expected \"Int\" or \"Float\" found ", dataTypes[val2.dataType])
 	}
 	return f(num1, num2)
 }
@@ -1336,5 +1336,60 @@ func CallProp(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
 		MakeVar(ds, scopes+1, f.params[i-1].value.(string), GetDsValue(ds, params[i]), false)
 	}
 	ds.inFunc = false
-	return Eval(ds, f.body, scopes+1, false)
+	return Eval(ds, f.body, scopes+1)
+}
+
+func WhileLoop(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+	conditionTokens := params[0].value.([]token)
+
+	hasReturn := false
+	res := []dataType{{dataType: Nil, value: nil}}
+
+	if conditionTokens[0].tokenType == Identifier {
+		dt := dataType{dataType: Ident, value: conditionTokens[0].value.(string)}
+		condition := GetDsValue(ds, dt)
+		if condition.dataType != Bool {
+			log.Fatal("Error in \"while\", expected \"Bool\" found ", dataTypes[dt.dataType])
+		}
+		for condition.value.(bool) {
+			hasReturn, res = Eval(ds, params[1].value.([]token), scopes+1)
+			if hasReturn && len(res) > 0 && (res[0].dataType == BreakVals || res[0].dataType == ReturnVals) {
+				if res[0].dataType == ReturnVals {
+					return true, []dataType{res[0]}
+				}
+				break
+			}
+			condition = GetDsValue(ds, dt)
+		}
+	} else if conditionTokens[0].tokenType == BoolToken {
+		if conditionTokens[0].value.(bool) {
+			for {
+				hasReturn, res = Eval(ds, params[1].value.([]token), scopes+1)
+				if hasReturn && len(res) > 0 && (res[0].dataType == BreakVals || res[0].dataType == ReturnVals) {
+					if res[0].dataType == ReturnVals {
+						return true, []dataType{res[0]}
+					}
+					break
+				}
+			}
+		}
+	} else if conditionTokens[0].tokenType == OpenParen {
+		hasCondition, condition := Eval(ds, conditionTokens, scopes+1)
+		if len(condition) != 1 {
+			log.Fatal("Error in \"while\", expected one return from condition, found ", len(condition))
+		}
+		if condition[0].dataType != Bool {
+			log.Fatal("Error in \"while\", expected \"Bool\" condition, found ", dataTypes[condition[0].dataType])
+		}
+		for hasCondition && condition[0].value.(bool) {
+			hasReturn, res = Eval(ds, params[1].value.([]token), scopes+1)
+			hasCondition, condition = Eval(ds, conditionTokens, scopes+1)
+		}
+		if !hasCondition {
+			log.Fatal("Error in \"while\", expected return from condition, found none")
+		}
+	} else {
+		log.Fatal("Unexpected token ", conditionTokens[0].value)
+	}
+	return hasReturn, res
 }

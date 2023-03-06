@@ -100,11 +100,22 @@ func GetString(str string) (string, int) {
 	return "", 0
 }
 
+func GetComment(str string) int {
+	for i, v := range str {
+		if v == '\n' {
+			return i
+		}
+	}
+	return 0
+}
+
 func Tokenize(code string) []token {
 	res := []token{}
 	temp := make([]rune, 0, len(code)/6)
 	for i := 0; i < len(code); i++ {
-		if code[i] == '"' {
+		if code[i] == '#' {
+			i += GetComment(code[i:])
+		} else if code[i] == '"' {
 			var t token
 			t.tokenType = StringToken
 			str, index := GetString(code[i:])

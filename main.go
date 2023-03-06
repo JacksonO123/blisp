@@ -276,20 +276,43 @@ func EvalFunc(ds *dataStore, scopes int, info []dataType) (bool, bool, []dataTyp
 	}
 }
 
-func Eval(ds *dataStore, code []token, scopes int, root bool) (bool, []dataType) {
+func Eval(ds *dataStore, code []token, scopes int) (bool, []dataType) {
 	funcCall := [][]dataType{}
 	funcNames := []string{}
 	hasReturn := true
 	toReturn := []dataType{}
 	reachedBlockEnd := false
 	for i := 0; i < len(code); i++ {
+		if len(funcNames) > 0 && funcNames[len(funcNames)-1] == "while" {
+			if code[i+1].tokenType == OpenParen {
+				funcCall[len(funcCall)-1] = append(funcCall[len(funcCall)-1], GetDataTypeFromToken(code[i]))
+				conditionTokens, num := GetFuncEnd(code[i+1:])
+				openParen := token{
+					tokenType: OpenParen,
+					value:     "(",
+				}
+				closeParen := token{
+					tokenType: CloseParen,
+					value:     ")",
+				}
+				conditionTokens = append([]token{openParen}, conditionTokens...)
+				conditionTokens = append(conditionTokens, closeParen)
+				tokens := dataType{dataType: Tokens, value: conditionTokens}
+				i += num + 2
+				funcCall[len(funcCall)-1] = append(funcCall[len(funcCall)-1], tokens)
+			} else if code[i+1].tokenType == Identifier || code[i+1].tokenType == BoolToken {
+				tokens := dataType{dataType: Tokens, value: []token{code[i+1]}}
+				funcCall[len(funcCall)-1] = append(funcCall[len(funcCall)-1], GetDataTypeFromToken(code[i]))
+				funcCall[len(funcCall)-1] = append(funcCall[len(funcCall)-1], tokens)
+				i += 2
+			}
+		}
 		if len(funcNames) > 0 && funcNames[len(funcNames)-1] == "body" {
 			funcCall = funcCall[:len(funcCall)-1]
 			funcNames = funcNames[:len(funcNames)-1]
-			i++
-			bodyDataTokens, _ := GetFuncEnd(code[i-1:])
+			bodyDataTokens, num := GetFuncEnd(code[i:])
 			tokens := dataType{dataType: Tokens, value: bodyDataTokens}
-			i += len(bodyDataTokens) + 1
+			i += num + 1
 			funcCall[len(funcCall)-1] = append(funcCall[len(funcCall)-1], tokens)
 		}
 		if code[i].tokenType == OpenParen {
@@ -323,12 +346,12 @@ func Eval(ds *dataStore, code []token, scopes int, root bool) (bool, []dataType)
 			arr, index := GetArr(code[i:])
 			funcCall[len(funcCall)-1] = append(funcCall[len(funcCall)-1], arr)
 			i += index + 1
-		} else if code[i].tokenType == Identifier ||
+		} else if (code[i].tokenType == Identifier ||
 			code[i].tokenType == StringToken ||
 			code[i].tokenType == IntToken ||
 			code[i].tokenType == BoolToken ||
 			code[i].tokenType == FloatToken ||
-			code[i].tokenType == NilToken {
+			code[i].tokenType == NilToken) && len(funcCall) > 0 {
 			funcCall[len(funcCall)-1] = append(funcCall[len(funcCall)-1], GetDataTypeFromToken(code[i]))
 		}
 		if len(funcCall) == 0 {
@@ -380,7 +403,7 @@ func main() {
 			if scanner.Scan() {
 				line = scanner.Text()
 			}
-			hasReturn, val := Eval(ds, Tokenize(line), 0, true)
+			hasReturn, val := Eval(ds, Tokenize(line), 0)
 			if hasReturn {
 				fmt.Println(val)
 			}
@@ -409,7 +432,7 @@ func main() {
 		fmt.Println("Tokenized in", tokenEnd)
 		fmt.Println()
 	}
-	Eval(ds, tokens, 0, true)
+	Eval(ds, tokens, 0)
 	if benchmark {
 		evalEnd := time.Since(start)
 		fmt.Println("\nFinished in", evalEnd)

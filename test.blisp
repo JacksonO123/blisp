@@ -1,4 +1,9 @@
-(var h 2)
-(print h)
-(set h nil)
-(print h)
+(func check x y (body
+	(return (< x y))
+))
+
+(var counter 0)
+(while (check counter 3) (body
+	(print counter)
+	(set counter (+ counter 1))
+))

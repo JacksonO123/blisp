@@ -697,7 +697,6 @@ func CompareStructs(ds *dataStore, val1 dataType, val2 dataType) bool {
 }
 
 func Eq(ds *dataStore, params ...dataType) bool {
-	eq := true
 	for i := 0; i < len(params)-1; i++ {
 		val1 := params[i]
 		val2 := params[i+1]
@@ -715,28 +714,29 @@ func Eq(ds *dataStore, params ...dataType) bool {
 		}
 		if val1.dataType == List {
 			if val2.dataType == List {
-				eq = CompareLists(ds, val1, val2)
+				if !CompareLists(ds, val1, val2) {
+					return false
+				}
 			} else {
-				log.Fatal("Cannot compare types \"List\" and ", dataTypes[val2.dataType])
+				return false
 			}
 		} else if val2.dataType == List {
 			log.Fatal("Cannot compare types \"List\" and ", dataTypes[val1.dataType])
 		} else if val1.dataType == Struct {
 			if val2.dataType == Struct {
-				eq = CompareStructs(ds, val1, val2)
+				if !CompareStructs(ds, val1, val2) {
+					return false
+				}
 			} else {
-				log.Fatal("Cannot compare types \"Struct\" and ", dataTypes[val2.dataType])
+				return false
 			}
 		} else if val2.dataType == Struct {
-			log.Fatal("Cannot compare types \"Struct\" and ", dataTypes[val1.dataType])
+			return false
 		} else if val1.value != val2.value {
-			eq = false
-		}
-		if !eq {
-			break
+			return false
 		}
 	}
-	return eq
+	return true
 }
 
 func If(ds *dataStore, scopes int, params ...dataType) (bool, []dataType) {
@@ -1392,4 +1392,70 @@ func WhileLoop(ds *dataStore, scopes int, params []dataType) (bool, []dataType) 
 		log.Fatal("Unexpected token ", conditionTokens[0].value)
 	}
 	return hasReturn, res
+}
+
+func AddOne(ds *dataStore, num dataType) dataType {
+	isIdent := false
+	name := ""
+	if num.dataType == Ident {
+		name = num.value.(string)
+		isIdent = true
+		num = GetDsValue(ds, num)
+	}
+	if num.dataType == Int {
+		num.value = num.value.(int) + 1
+		if isIdent {
+			SetVar(ds, name, num)
+		}
+		return num
+	} else if num.dataType == Float {
+		num.value = num.value.(float64) + 1
+		if isIdent {
+			SetVar(ds, name, num)
+		}
+		return num
+	} else {
+		log.Fatal("Error in \"++\", expected \"Int\" or \"Float\"")
+	}
+	return dataType{dataType: Nil, value: nil}
+}
+
+func AddMany(ds *dataStore, num dataType, amount dataType) dataType {
+	isIdent := false
+	name := ""
+	if num.dataType == Ident {
+		name = num.value.(string)
+		isIdent = true
+		num = GetDsValue(ds, num)
+	}
+
+	if amount.dataType == Ident {
+		amount = GetDsValue(ds, amount)
+	}
+
+	var amountVal float64
+	if amount.dataType == Int {
+		amountVal = float64(amount.value.(int))
+	} else if amount.dataType == Float {
+		amountVal = amount.value.(float64)
+	} else {
+		log.Fatal("Error in \"+=\", expected \"Int\" or \"Float\"")
+	}
+
+	if num.dataType == Int {
+		num.value = num.value.(int) + int(amountVal)
+		if isIdent {
+			SetVar(ds, name, num)
+		}
+		return num
+	} else if num.dataType == Float {
+		num.value = num.value.(float64) + amountVal
+		if isIdent {
+			SetVar(ds, name, num)
+		}
+		return num
+	} else {
+		log.Fatal("Error in \"+=\", expected \"Int\" or \"Float\"")
+	}
+	return dataType{dataType: Nil, value: nil}
 }

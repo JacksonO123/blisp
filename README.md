@@ -15,9 +15,4 @@ Not including [FILENAME] [FLAGS] will start a repl
 
 The `-b` flag will benchmark the evaluation
 
-Todo:
-- [x] Comments
-- [x] While loops
-- [ ] ++
-
 _Jackson Otto_

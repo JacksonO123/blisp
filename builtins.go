@@ -352,4 +352,16 @@ func InitBuiltins(ds *dataStore) {
 	ds.builtins["while"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
 		return WhileLoop(ds, scopes, params)
 	}
+	ds.builtins["++"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		if len(params) != 1 {
+			log.Fatal("Invalid number of parameters to \"++\", expected 1 found ", len(params))
+		}
+		return true, []dataType{AddOne(ds, params[0])}
+	}
+	ds.builtins["+="] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		if len(params) != 2 {
+			log.Fatal("Invalid number of parameters to \"++\", expected 2 found ", len(params))
+		}
+		return true, []dataType{AddMany(ds, params[0], params[1])}
+	}
 }

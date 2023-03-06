@@ -1,9 +1,47 @@
-(func check x y (body
-	(return (< x y))
+(func linked-list (body
+	(return
+		(struct
+			root nil
+			add (func _ this val (body
+				(if (eq (get this root) nil) (body
+					(set this root (node val))
+				) (body
+					(. (get this root) add val)
+				))
+			))
+			print (func _ this (body
+				(if (not (eq (get this root) nil)) (body
+					(. (get this root) print)
+				))
+			))
+		)
+	)
 ))
 
-(var counter 0)
-(while (check counter 3) (body
-	(print counter)
-	(set counter (+ counter 1))
+(func node val (body
+	(return
+		(struct
+			val val
+			next nil
+			add (func _ this val (body
+				(if (eq (get this next) nil) (body
+					(set this next (node val))
+				) (body
+					(. (get this next) add val)
+				))
+			))
+			print (func _ this (body
+				(print (get this val))
+				(if (not (eq (get this next) nil)) (body
+					(. (get this next) print)
+				))
+			))
+		)
+	)
 ))
+
+(var list (linked-list))
+(loop 1000 i (body
+	(. list add i)
+))
+(. list print)

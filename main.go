@@ -61,6 +61,11 @@ type function struct {
 	params []dataType
 }
 
+type structAttr struct {
+	name string
+	attr *dataType
+}
+
 type dataStore struct {
 	vars             map[string][]variable
 	scopedVars       [][]string

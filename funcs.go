@@ -129,22 +129,13 @@ func PrintArr(data dataType) {
 	fmt.Print("]")
 }
 
-func GetStructKeys(s map[string]dataType) []string {
-	res := make([]string, 0, len(s))
-	for k := range s {
-		res = append(res, k)
-	}
-	return res
-}
-
 func PrintStruct(ds *dataStore, val dataType) {
 	if val.dataType == Struct {
-		s := val.value.(map[string]dataType)
-		keys := GetStructKeys(s)
+		s := val.value.([]structAttr)
 		fmt.Println("{")
-		for _, key := range keys {
-			fmt.Print("\t" + key + ": ")
-			Print(ds, s[key])
+		for _, attr := range s {
+			fmt.Print("\t" + fmt.Sprint(attr.name) + ": ")
+			Print(ds, *attr.attr)
 		}
 		fmt.Println("}")
 	} else {
@@ -508,8 +499,13 @@ func GetFromValue(ds *dataStore, val dataType, index dataType) dataType {
 		parts := val.value.([]dataType)
 		return parts[index.value.(int)]
 	} else if val.dataType == Struct {
-		parts := val.value.(map[string]dataType)
-		return parts[index.value.(string)]
+		parts := val.value.([]structAttr)
+		for i := 0; i < len(parts); i++ {
+			if parts[i].name == index.value.(string) {
+				return *parts[i].attr
+			}
+		}
+		return dataType{dataType: Nil, value: nil}
 	}
 	return dataType{dataType: Nil, value: nil}
 }
@@ -668,28 +664,22 @@ func CompareLists(ds *dataStore, val1 dataType, val2 dataType) bool {
 }
 
 func CompareStructs(ds *dataStore, val1 dataType, val2 dataType) bool {
-	s1 := val1.value.(map[string]dataType)
-	s1Keys := GetStructKeys(s1)
-	s2 := val1.value.(map[string]dataType)
-	s2Keys := GetStructKeys(s2)
-	if len(s1Keys) != len(s2Keys) {
+	s1 := val1.value.([]structAttr)
+	s2 := val1.value.([]structAttr)
+	if len(s1) != len(s2) {
 		return false
 	}
-	for _, key := range s1Keys {
-		_, ok := s2[key]
-		if !ok {
-			return false
+	for i := 0; i < len(s1); i++ {
+		found := false
+		for j := 0; j < len(s2); j++ {
+			if s1[i].name == s2[j].name &&
+				s1[i].attr.dataType == s2[j].attr.dataType &&
+				Eq(ds, *s1[i].attr, *s2[j].attr) {
+				found = true
+				break
+			}
 		}
-		if !Eq(ds, s1[key], s2[key]) {
-			return false
-		}
-	}
-	for _, key := range s2Keys {
-		_, ok := s1[key]
-		if !ok {
-			return false
-		}
-		if !Eq(ds, s1[key], s2[key]) {
+		if !found {
 			return false
 		}
 	}
@@ -880,12 +870,23 @@ func Remove(ds *dataStore, val dataType, index dataType) dataType {
 			return dataType{dataType: Nil, value: nil}
 		}
 	} else if val.dataType == Struct {
-		strct := val.value.(map[string]dataType)
+		strct := val.value.([]structAttr)
 		if index.dataType != Ident {
 			log.Fatal("Error in \"remove\" expected \"Ident\" found ", dataTypes[val.dataType])
 		}
-		delete(strct, index.value.(string))
-		return dataType{value: strct, dataType: Struct}
+		item := dataType{dataType: Nil, value: nil}
+		for i := 0; i < len(strct); i++ {
+			if strct[i].name == index.value.(string) {
+				item = *strct[i].attr
+				strct = append(strct[:i], strct[i+1:]...)
+				val.value = strct
+				if isIdent {
+					SetVar(ds, name, val)
+				}
+				break
+			}
+		}
+		return item
 	} else {
 		log.Fatal("Error in \"remove\" expected \"List\" or \"Struct\" found ", dataTypes[val.dataType])
 	}
@@ -939,10 +940,14 @@ func SetValue(ds *dataStore, val dataType, index dataType, value dataType) {
 			log.Fatal("Error in \"set\", expected \"Ident\" found ", dataTypes[index.dataType])
 		}
 
-		m := val.value.(map[string]dataType)
-		m[index.value.(string)] = value
+		s := val.value.([]structAttr)
+		for i := 0; i < len(s); i++ {
+			if s[i].name == index.value.(string) {
+				s[i].attr = &value
+			}
+		}
 
-		val.value = m
+		val.value = s
 	} else if val.dataType == List {
 		list := val.value.([]dataType)
 		if index.dataType == Ident {
@@ -1222,7 +1227,7 @@ func MakeStruct(ds *dataStore, params ...dataType) dataType {
 	var d dataType
 	d.dataType = Struct
 
-	m := make(map[string]dataType)
+	m := make([]structAttr, 20)
 	key := dataType{dataType: Nil, value: nil}
 	for i, v := range params {
 		if i%2 == 0 {
@@ -1230,24 +1235,23 @@ func MakeStruct(ds *dataStore, params ...dataType) dataType {
 				log.Fatal("Expected \"Ident\" found ", dataTypes[v.dataType])
 			}
 			key = v
-			m[v.value.(string)] = dataType{dataType: Nil, value: nil}
 		} else {
 			info := v
 			if info.dataType == Ident {
-				if info.value.(string) == "_" {
-					continue
-				}
 				info = GetDsValue(ds, info)
 				if info.dataType == Ident {
 					log.Fatal("Unknown value: ", info.value.(string))
-				} else {
-					if key.dataType == Ident {
-						m[key.value.(string)] = info
+				}
+			}
+			if key.dataType == Ident {
+				exists := false
+				for i := 0; i < len(m); i++ {
+					if m[i].name == key.value.(string) {
+						exists = true
 					}
 				}
-			} else {
-				if key.dataType == Ident {
-					m[key.value.(string)] = info
+				if !exists {
+					m = append(m, structAttr{name: key.value.(string), attr: &info})
 				}
 			}
 		}
@@ -1320,11 +1324,15 @@ func CallProp(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
 		log.Fatal("Error in \".\", expected \"Ident\" found ", dataTypes[obj.dataType])
 	}
 
-	objMap := obj.value.(map[string]dataType)
-	fn, ok := objMap[key.value.(string)]
-	if !ok {
-		log.Fatal(key.value, " is not a property of ", objMap)
+	structAttrs := obj.value.([]structAttr)
+	index := 0
+	for i := 0; i < len(structAttrs); i++ {
+		if structAttrs[i].name == key.value.(string) {
+			index = i
+			break
+		}
 	}
+	fn := structAttrs[index].attr
 	f := fn.value.(function)
 
 	if len(f.params) != len(params)-1 {

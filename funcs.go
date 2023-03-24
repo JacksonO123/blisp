@@ -57,7 +57,7 @@ var reserved []string = []string{
 }
 
 func GetArr(tokens []token) (dataType, int) {
-	res := []dataType{}
+	res := make([]dataType, 100)
 	index := 0
 	for i := 1; i < len(tokens); i++ {
 		if tokens[i].tokenType == OpenBracket {

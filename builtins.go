@@ -358,10 +358,32 @@ func InitBuiltins(ds *dataStore) {
 		}
 		return true, []dataType{AddOne(ds, params[0])}
 	}
+	ds.builtins["--"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		if len(params) != 1 {
+			log.Fatal("Invalid number of parameters to \"--\", expected 1 found ", len(params))
+		}
+		return true, []dataType{SubOne(ds, params[0])}
+	}
 	ds.builtins["+="] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
 		if len(params) != 2 {
-			log.Fatal("Invalid number of parameters to \"++\", expected 2 found ", len(params))
+			log.Fatal("Invalid number of parameters to \"+=\", expected 2 found ", len(params))
 		}
 		return true, []dataType{AddMany(ds, params[0], params[1])}
+	}
+	ds.builtins["-="] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		if len(params) != 2 {
+			log.Fatal("Invalid number of parameters to \"-=\", expected 2 found ", len(params))
+		}
+		return true, []dataType{SubMany(ds, params[0], params[1])}
+	}
+	ds.builtins["require"] = func (ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		if len(params) != 1 {
+			log.Fatal("Invalid number of parameters to \"require\", expected 1 found ", len(params))
+		}
+
+		file := GetFile(ds, params[0])
+		tokens := Tokenize(string(file))
+		Eval(ds, tokens, scopes - 1)
+		return false, []dataType{}
 	}
 }

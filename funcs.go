@@ -1136,9 +1136,7 @@ func GetFile(ds *dataStore, file dataType) string {
 	if file.dataType != String {
 		log.Fatal("Error in \"read\", expected \"String\" found ", dataTypes[file.dataType])
 	}
-	str := file.value.(string)
-	str = str[1 : len(str)-1]
-	val, err := os.ReadFile(str)
+	val, err := os.ReadFile(file.value.(string))
 	if err == nil {
 		return string(val)
 	} else {
@@ -1467,3 +1465,70 @@ func AddMany(ds *dataStore, num dataType, amount dataType) dataType {
 	}
 	return dataType{dataType: Nil, value: nil}
 }
+
+func SubOne(ds *dataStore, num dataType) dataType {
+	isIdent := false
+	name := ""
+	if num.dataType == Ident {
+		name = num.value.(string)
+		isIdent = true
+		num = GetDsValue(ds, num)
+	}
+	if num.dataType == Int {
+		num.value = num.value.(int) - 1
+		if isIdent {
+			SetVar(ds, name, num)
+		}
+		return num
+	} else if num.dataType == Float {
+		num.value = num.value.(float64) - 1
+		if isIdent {
+			SetVar(ds, name, num)
+		}
+		return num
+	} else {
+		log.Fatal("Error in \"++\", expected \"Int\" or \"Float\"")
+	}
+	return dataType{dataType: Nil, value: nil}
+}
+
+func SubMany(ds *dataStore, num dataType, amount dataType) dataType {
+	isIdent := false
+	name := ""
+	if num.dataType == Ident {
+		name = num.value.(string)
+		isIdent = true
+		num = GetDsValue(ds, num)
+	}
+
+	if amount.dataType == Ident {
+		amount = GetDsValue(ds, amount)
+	}
+
+	var amountVal float64
+	if amount.dataType == Int {
+		amountVal = float64(amount.value.(int))
+	} else if amount.dataType == Float {
+		amountVal = amount.value.(float64)
+	} else {
+		log.Fatal("Error in \"+=\", expected \"Int\" or \"Float\"")
+	}
+
+	if num.dataType == Int {
+		num.value = num.value.(int) - int(amountVal)
+		if isIdent {
+			SetVar(ds, name, num)
+		}
+		return num
+	} else if num.dataType == Float {
+		num.value = num.value.(float64) - amountVal
+		if isIdent {
+			SetVar(ds, name, num)
+		}
+		return num
+	} else {
+		log.Fatal("Error in \"+=\", expected \"Int\" or \"Float\"")
+	}
+	return dataType{dataType: Nil, value: nil}
+}
+

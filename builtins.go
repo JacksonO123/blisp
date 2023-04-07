@@ -124,7 +124,7 @@ func InitBuiltins(ds *dataStore) {
 					return true, []dataType{{dataType: String, value: "\"(looping over " + GetStrValue(val) + ")\""}}
 				}
 			} else {
-				log.Fatal("Expecting first param to be \"List\" or \"Int\", got:", dataTypes[val.dataType])
+				log.Fatal("Error in \"Loop\". Expected first param to be \"List\" or \"Int\", got:", dataTypes[val.dataType])
 			}
 		} else if len(params) == 4 {
 			ds.inLoop = true
@@ -149,7 +149,7 @@ func InitBuiltins(ds *dataStore) {
 					return true, []dataType{{dataType: String, value: "\"(looping from " + GetStrValue(val) + " to " + GetStrValue(params[1]) + ")\""}}
 				}
 			} else {
-				log.Fatal("Expecting first param to be list, got: ", dataTypes[val.dataType])
+				log.Fatal("Error in \"Loop\". Expected first param to be list, got: ", dataTypes[val.dataType])
 			}
 		}
 		return false, []dataType{}
@@ -385,5 +385,34 @@ func InitBuiltins(ds *dataStore) {
 		tokens := Tokenize(string(file))
 		Eval(ds, tokens, scopes - 1)
 		return false, []dataType{}
+	}
+	ds.builtins["from-char-code"] = func (ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		if len(params) != 1 {
+			log.Fatal("Invalid number of parameters to \"from-char-code\", expected 1 found ", len(params))
+		}
+		return true, []dataType{FromCharCode(ds, params[0])}
+	}
+	ds.builtins["char-code-from"] = func (ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		if len(params) != 1 {
+			log.Fatal("Invalid number of parameters to \"char-code-from\", expected 1 found ", len(params))
+		}
+		return true, []dataType{CharCodeFrom(ds, params[0])}
+	}
+	ds.builtins["split"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		if len(params) == 1 {
+			return true, []dataType{Split(ds, params[0], dataType{dataType: String, value: ""})}
+		} else if len(params) == 2 {
+			return true, []dataType{Split(ds, params[0], params[1])}
+		} else {
+			log.Fatal("Invalid number of parameters to \"split\", expected 1 or 2 found ", len(params))
+			return false, []dataType{}
+		}
+	}
+	ds.builtins["is-letter"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		if len(params) != 1 {
+			log.Fatal("Invalid number of parameters to \"is-letter\", expected 1 found ", len(params))
+		}
+
+		return true, []dataType{IsLetter(ds, params[0])}
 	}
 }

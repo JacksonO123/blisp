@@ -1,3 +1,4 @@
+# relative path names will be supported later
 (require "blisp-src/test.blisp")
 (test)
 # (print h)

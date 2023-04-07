@@ -1532,3 +1532,77 @@ func SubMany(ds *dataStore, num dataType, amount dataType) dataType {
 	return dataType{dataType: Nil, value: nil}
 }
 
+func FromCharCode(ds *dataStore, charCode dataType) dataType {
+	if charCode.dataType == Ident {
+		charCode = GetDsValue(ds, charCode)
+		if charCode.dataType == Ident {
+			log.Fatal("Error in \"from-char-code\", expected \"Int\" found ", dataTypes[charCode.dataType])
+		}
+	}
+	
+	if charCode.dataType == Int {
+		val := charCode.value.(int)
+		return dataType{dataType: String, value: string(rune(val))}
+	} else {
+		log.Fatal("Error in \"from-char-code\", expected \"Int\" found ", dataTypes[charCode.dataType])
+	}
+	return dataType{dataType: Nil, value: nil}
+}
+
+func CharCodeFrom(ds *dataStore, charCode dataType) dataType {
+	if charCode.dataType == Ident {
+		charCode = GetDsValue(ds, charCode)
+		if charCode.dataType == Ident {
+			log.Fatal("Error in \"char-code-from\", expected \"String\" found ", dataTypes[charCode.dataType])
+		}
+	}
+
+	if charCode.dataType == String {
+		val := charCode.value.(string)
+		if len(val) > 1 {
+			log.Fatal("Error in \"char-code-from\", expected \"String\" of length 1, found length ", len(val))
+		}
+		return dataType{dataType: Int, value: int([]rune(val)[0])}
+	} else {
+		log.Fatal("Error in \"char-code-from\", expected \"String\" found ", dataTypes[charCode.dataType])
+	}
+	return dataType{dataType: Nil, value: nil}
+}
+
+func Split(ds *dataStore, val dataType, splitBy dataType) dataType {
+	if val.dataType == Ident {
+		val = GetDsValue(ds, val)
+		if val.dataType == Ident {
+			log.Fatal("Error in \"split\", expected \"String\" found ", dataTypes[val.dataType])
+		}
+	}
+
+	if splitBy.dataType == Ident {
+		splitBy = GetDsValue(ds, splitBy)
+		if splitBy.dataType == Ident {
+			log.Fatal("Error in \"split\", expected \"String\" found ", dataTypes[splitBy.dataType])
+		}
+	}
+
+	if val.dataType == String {
+		if splitBy.dataType == String {
+			chars := strings.Split(val.value.(string), splitBy.value.(string))
+			res := []dataType{}
+			for _, v := range chars {
+				res = append(res, dataType{dataType: String, value: v})
+			}
+			return dataType{dataType: List, value: res}
+		} else {
+			log.Fatal("Error in \"split\", expected \"String\" found ", dataTypes[val.dataType])
+		}
+	} else {
+		log.Fatal("Error in \"split\", expected \"String\" found ", dataTypes[val.dataType])
+	}
+
+	return dataType{dataType: Nil, value: nil}
+}
+
+func IsLetter(ds *dataStore, val dataType) dataType {
+	charCode := CharCodeFrom(ds, val)
+	return dataType{dataType: Bool, value: charCode.value.(int) <= 122 && charCode.value.(int) >= 99 }
+}

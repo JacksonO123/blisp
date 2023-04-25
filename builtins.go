@@ -208,7 +208,7 @@ func InitBuiltins(ds *dataStore) {
 		return true, []dataType{res}
 	}
 	ds.builtins["concat"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
-		return true, []dataType{{dataType: String, value: "\"" + Concat(ds, params...) + "\""}}
+		return true, []dataType{{dataType: String, value: Concat(ds, params...)}}
 	}
 	ds.builtins["exit"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
 		if len(params) == 0 {
@@ -274,10 +274,10 @@ func InitBuiltins(ds *dataStore) {
 		if !ds.inFunc {
 			log.Fatal("Not in func, cannot return")
 		}
-		vals := []dataType{}
-		for _, v := range params {
-			vals = append(vals, GetDsValue(ds, v))
+		if len(params) != 1 {
+			log.Fatal("Invalid number of parameters to \"return\". Expected 1 found ", len(params))
 		}
+		vals := []dataType{GetDsValue(ds, params[0])}
 		return true, []dataType{{dataType: ReturnVals, value: vals}}
 	}
 	ds.builtins["parse"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {

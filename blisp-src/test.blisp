@@ -1,1 +1,3 @@
-(func test (body (print "working")))
+(func test (body (return 1)))
+
+(print (type (test)))

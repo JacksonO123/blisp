@@ -3,23 +3,17 @@
   5 "Buzz"
 ))
 
-
 (loop 100 i (body
   (var answer "")
   (var option-keys (keys options))
   (loop option-keys key (body
     (if (eq (% i (parse key)) 0) (body
       (set answer (concat answer (get options key)))
+    ) (body
     ))
   ))
   (if (eq (len answer) 0) (body
     (set answer i)
   ))
   (print answer)
-
-  # Object.entries(condition)
-  # .filter(([key]) => i % key === 0)
-  # .forEach(([key, value]) => answer += value);
-  # if (!answer) answer = i;
-  # console.log(answer);
 ))

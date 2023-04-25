@@ -415,4 +415,18 @@ func InitBuiltins(ds *dataStore) {
 
 		return true, []dataType{IsLetter(ds, params[0])}
 	}
+	ds.builtins["keys"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		if len(params) != 1 {
+			log.Fatal("Invalid number of parameters to \"keys\", expected 1 found ", len(params))
+		}
+
+		return true, []dataType{GetKeys(ds, params[0])}
+	}
+	ds.builtins["values"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		if len(params) != 1 {
+			log.Fatal("Invalid number of parameters to \"values\", expected 1 found ", len(params))
+		}
+		
+		return true, []dataType{GetValues(ds, params[0])}
+	}
 }

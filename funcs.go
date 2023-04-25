@@ -54,6 +54,18 @@ var reserved []string = []string{
 	"struct",
 	"shift",
 	".",
+	"while",
+	"++",
+	"--",
+	"+=",
+	"-=",
+	"require",
+	"from-char-code",
+	"char-code-from",
+	"split",
+	"is-letter",
+	"keys",
+	"values",
 }
 
 func GetArr(tokens []token) (dataType, int) {
@@ -484,7 +496,7 @@ func GetFromValue(ds *dataStore, val dataType, index dataType) dataType {
 			log.Fatal("Error in \"get\", expected \"Int\" found ", dataTypes[index.dataType])
 		}
 	} else {
-		if index.dataType != Ident {
+		if index.dataType != Ident && index.dataType != Int && index.dataType != Float && index.dataType != String && index.dataType != Bool {
 			log.Fatal("Unable to index \"Struct\" with type ", dataTypes[index.dataType])
 		}
 	}
@@ -501,7 +513,13 @@ func GetFromValue(ds *dataStore, val dataType, index dataType) dataType {
 	} else if val.dataType == Struct {
 		parts := val.value.([]structAttr)
 		for i := 0; i < len(parts); i++ {
-			if parts[i].name == index.value.(string) {
+			if index.dataType == Ident {
+				index = GetDsValue(ds, index)
+				if index.dataType == Ident {
+					log.Fatal("Error in \"get\", unknown value ", index.value.(string))
+				}
+			}
+			if parts[i].name == fmt.Sprint(index.value) {
 				return *parts[i].attr
 			}
 		}
@@ -897,7 +915,14 @@ func Len(ds *dataStore, list dataType) int {
 	if list.dataType == Ident {
 		list = GetDsValue(ds, list)
 	}
-	return len(list.value.([]dataType))
+	if list.dataType == List {
+		return len(list.value.([]dataType))
+	}
+	if list.dataType == String {
+		return len(list.value.(string))
+	}
+	log.Fatal("Error in \"len\", unable to get length of type ", dataTypes[list.dataType])
+	return 0
 }
 
 func And(ds *dataStore, params ...dataType) bool {
@@ -1225,11 +1250,11 @@ func MakeStruct(ds *dataStore, params ...dataType) dataType {
 	var d dataType
 	d.dataType = Struct
 
-	m := make([]structAttr, 20)
+	m := []structAttr{}
 	key := dataType{dataType: Nil, value: nil}
 	for i, v := range params {
 		if i%2 == 0 {
-			if v.dataType != Ident {
+			if v.dataType != Ident && v.dataType != Int && v.dataType != Float && v.dataType != String && v.dataType != Bool {
 				log.Fatal("Expected \"Ident\" found ", dataTypes[v.dataType])
 			}
 			key = v
@@ -1241,15 +1266,15 @@ func MakeStruct(ds *dataStore, params ...dataType) dataType {
 					log.Fatal("Unknown value: ", info.value.(string))
 				}
 			}
-			if key.dataType == Ident {
+			if key.dataType == Ident || key.dataType == Int || key.dataType == Float || key.dataType == String || key.dataType == Bool {
 				exists := false
 				for i := 0; i < len(m); i++ {
-					if m[i].name == key.value.(string) {
+					if m[i].name == fmt.Sprint(key.value) {
 						exists = true
 					}
 				}
 				if !exists {
-					m = append(m, structAttr{name: key.value.(string), attr: &info})
+					m = append(m, structAttr{name: fmt.Sprint(key.value), attr: &info})
 				}
 			}
 		}
@@ -1605,4 +1630,34 @@ func Split(ds *dataStore, val dataType, splitBy dataType) dataType {
 func IsLetter(ds *dataStore, val dataType) dataType {
 	charCode := CharCodeFrom(ds, val)
 	return dataType{dataType: Bool, value: charCode.value.(int) <= 122 && charCode.value.(int) >= 99 }
+}
+
+func GetKeys(ds *dataStore, obj dataType) dataType {
+	if obj.dataType == Ident {
+		obj = GetDsValue(ds, obj)
+	}
+	if obj.dataType != Struct {
+		log.Fatal("Error in \"keys\", expected \"Struct\" found ", dataTypes[obj.dataType])
+	}
+	keys := obj.value.([]structAttr)
+	res := make([]dataType, (len(keys) - 1) / 2)
+	for _, key := range keys {
+		res = append(res, dataType{dataType: String, value: key.name})
+	}
+	return dataType{dataType: List, value: res}
+}
+
+func GetValues(ds *dataStore, obj dataType) dataType {
+	if obj.dataType == Ident {
+		obj = GetDsValue(ds, obj)
+	}
+	if obj.dataType != Struct {
+		log.Fatal("Error in \"values\", expected \"Struct\" found ", dataTypes[obj.dataType])
+	}
+	keys := obj.value.([]structAttr)
+	res := make([]dataType, len(keys))
+	for _, key := range keys {
+		res = append(res, dataType{dataType: String, value: *key.attr})
+	}
+	return dataType{dataType: List, value: res}
 }

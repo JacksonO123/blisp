@@ -165,6 +165,7 @@ func Print(ds *dataStore, params ...dataType) {
 	for i, v := range params {
 		if v.dataType == Ident {
 			v = GetDsValue(ds, v)
+			// fmt.Println(v)
 			if v.dataType == Ident {
 				log.Fatal("Unknown value: ", v.value)
 			}
@@ -521,8 +522,10 @@ func GetFromValue(ds *dataStore, val dataType, index dataType) dataType {
 		return parts[index.value.(int)]
 	} else if val.dataType == Struct {
 		parts := val.value.([]structAttr)
+		fmt.Println("## parts", parts)
 		for i := 0; i < len(parts); i++ {
 			if index.dataType == Ident {
+				fmt.Println(ds.vars)
 				index = GetDsValue(ds, index)
 				if index.dataType == Ident {
 					log.Fatal("Error in \"get\", unknown value ", index.value.(string))
@@ -558,8 +561,8 @@ func LoopListIterator(ds *dataStore, scopes int, list dataType, iteratorName dat
 		valP := Eval(ds, body.value.([]token), scopes)
 		if valP != nil {
 			val := *valP
-			if len(val) > 0 && (val[0].dataType == BreakVals || val[0].dataType == ReturnVals) {
-				if val[0].dataType == ReturnVals {
+			if len(val) > 0 && (val[0].dataType == BreakVal || val[0].dataType == ReturnVal) {
+				if val[0].dataType == ReturnVal {
 					return &[]dataType{val[0]}
 				}
 				break
@@ -587,8 +590,8 @@ func LoopListIndexIterator(ds *dataStore, scopes int, list dataType, indexIterat
 		valP := Eval(ds, body.value.([]token), scopes)
 		if valP != nil {
 			val := *valP
-			if len(val) > 0 && (val[0].dataType == BreakVals || val[0].dataType == ReturnVals) {
-				if val[0].dataType == ReturnVals {
+			if len(val) > 0 && (val[0].dataType == BreakVal || val[0].dataType == ReturnVal) {
+				if val[0].dataType == ReturnVal {
 					return &[]dataType{val[0]}
 				}
 				break
@@ -622,8 +625,8 @@ func LoopTo(ds *dataStore, scopes int, max dataType, indexIterator dataType, bod
 		valP := Eval(ds, body.value.([]token), scopes)
 		if valP != nil {
 			val := *valP
-			if len(val) > 0 && (val[0].dataType == BreakVals || val[0].dataType == ReturnVals) {
-				if val[0].dataType == ReturnVals {
+			if len(val) > 0 && (val[0].dataType == BreakVal || val[0].dataType == ReturnVal) {
+				if val[0].dataType == ReturnVal {
 					return &[]dataType{val[0]}
 				}
 				break
@@ -677,8 +680,8 @@ func LoopFromTo(ds *dataStore, scopes int, start dataType, max dataType, indexIt
 		valP := Eval(ds, body.value.([]token), scopes)
 		if valP != nil {
 			val := *valP
-			if len(val) > 0 && (val[0].dataType == BreakVals || val[0].dataType == ReturnVals) {
-				if val[0].dataType == ReturnVals {
+			if len(val) > 0 && (val[0].dataType == BreakVal || val[0].dataType == ReturnVal) {
+				if val[0].dataType == ReturnVal {
 					return &[]dataType{val[0]}
 				}
 				break
@@ -1359,6 +1362,7 @@ func CallProp(ds *dataStore, scopes int, params []dataType) *[]dataType {
 	if obj.dataType == Ident {
 		obj = GetDsValue(ds, obj)
 	}
+	fmt.Println(obj)
 	if obj.dataType != Struct {
 		log.Fatal("Error in \".\", expected \"Struct\" found ", dataTypes[obj.dataType])
 	}
@@ -1406,8 +1410,8 @@ func WhileLoop(ds *dataStore, scopes int, params []dataType) *[]dataType {
 			resP = Eval(ds, params[1].value.([]token), scopes+1)
 			if resP != nil {
 				res := *resP
-				if hasReturn && len(res) > 0 && (res[0].dataType == BreakVals || res[0].dataType == ReturnVals) {
-					if res[0].dataType == ReturnVals {
+				if hasReturn && len(res) > 0 && (res[0].dataType == BreakVal || res[0].dataType == ReturnVal) {
+					if res[0].dataType == ReturnVal {
 						return &[]dataType{res[0]}
 					}
 					break
@@ -1421,8 +1425,8 @@ func WhileLoop(ds *dataStore, scopes int, params []dataType) *[]dataType {
 				resP = Eval(ds, params[1].value.([]token), scopes+1)
 				if resP != nil {
 					res := *resP
-					if hasReturn && len(res) > 0 && (res[0].dataType == BreakVals || res[0].dataType == ReturnVals) {
-						if res[0].dataType == ReturnVals {
+					if hasReturn && len(res) > 0 && (res[0].dataType == BreakVal || res[0].dataType == ReturnVal) {
+						if res[0].dataType == ReturnVal {
 							return &[]dataType{res[0]}
 						}
 						break

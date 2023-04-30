@@ -207,7 +207,7 @@ func InitBuiltins(ds *dataStore) {
 		return nil
 	}
 	ds.builtins["break"] = func(ds *dataStore, scopes int, params []dataType) *[]dataType {
-		return &[]dataType{{dataType: BreakVals, value: params}}
+		return &[]dataType{{dataType: BreakVal, value: nil}}
 	}
 	ds.builtins["pop"] = func(ds *dataStore, scopes int, params []dataType) *[]dataType {
 		if len(params) != 1 {
@@ -263,8 +263,8 @@ func InitBuiltins(ds *dataStore) {
 		if len(params) != 1 {
 			log.Fatal("Invalid number of parameters to \"return\". Expected 1 found ", len(params))
 		}
-		vals := []dataType{GetDsValue(ds, params[0])}
-		return &[]dataType{{dataType: ReturnVals, value: vals}}
+		val := GetDsValue(ds, params[0])
+		return &[]dataType{{dataType: ReturnVal, value: val}}
 	}
 	ds.builtins["parse"] = func(ds *dataStore, scopes int, params []dataType) *[]dataType {
 		var res dataType

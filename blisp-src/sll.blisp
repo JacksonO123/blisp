@@ -3,14 +3,20 @@
 		(struct
 			root nil
 			add (func _ this val (body
-				(if (eq (get this root) nil) (body
-					(set this root (node val))
-				) (body
-					(. (get this root) add val)
-				))
+                (print this)
+                (print (get this root))
+                # (print "a")
+				# (if (eq (get this root) nil) (body
+					# (set this root (node val))
+				# ) (body
+                    # (print "b")
+					# (. (get this root) add val)
+				# ))
 			))
 			print (func _ this (body
+                (print "c")
 				(if (not (eq (get this root) nil)) (body
+                    (print "d")
 					(. (get this root) print)
 				))
 			))
@@ -41,7 +47,8 @@
 ))
 
 (var list (linked-list))
-(loop 1000 i (body
+# (print list)
+(loop 10 i (body
 	(. list add i)
 ))
-(. list print)
+# (. list print)

@@ -40,8 +40,8 @@ const (
 	Nil
 	Tokens
 	Struct
-	BreakVals  // []dataType
-	ReturnVals // []dataType
+	BreakVal  // dataType
+	ReturnVal // dataType
 )
 
 type dataType struct {
@@ -281,7 +281,7 @@ func EvalFunc(ds *dataStore, scopes int, info []dataType) (bool, *[]dataType) {
 	}
 }
 
-func Eval(ds *dataStore, code []token, scopes int) (*[]dataType) {
+func Eval(ds *dataStore, code []token, scopes int) *[]dataType {
 	funcCall := [][]dataType{}
 	funcNames := []string{}
 	var toReturn *[]dataType = nil
@@ -327,14 +327,15 @@ func Eval(ds *dataStore, code []token, scopes int) (*[]dataType) {
 				continue
 			}
 			fromCustom, valP := EvalFunc(ds, len(funcCall)+scopes, funcCall[len(funcCall)-1])
+			// fmt.Println(funcNames[len(funcNames)-1], fromCustom, valP, "\n")
 			RemoveScopedVars(ds, len(funcCall)+scopes)
 			if valP != nil {
 				val := *valP
-				if len(val) > 0 && (val[0].dataType == BreakVals || val[0].dataType == ReturnVals) {
+				if len(val) > 0 && (val[0].dataType == BreakVal || val[0].dataType == ReturnVal) {
 					if !fromCustom {
 						return valP
 					} else {
-						val = val[0].value.([]dataType)
+						valP = &[]dataType{val[0].value.(dataType)}
 					}
 				}
 			}

@@ -6,10 +6,22 @@ import (
 	"os"
 )
 
+func validateRangeParam(name string, rangeToCheck [2]int, numOfParams int) {
+	if numOfParams < rangeToCheck[0] || numOfParams > rangeToCheck[1] {
+		log.Fatal("Invalid number of parameters to \"", name, "\", expected range from ", rangeToCheck[0], " to ", rangeToCheck[1], " found ", numOfParams)
+	}
+}
+
+func validateNumParam(name string, numToCheck int, numOfParams int) {
+	if (numToCheck != numOfParams) {
+		log.Fatal("Invalid number of parameters to \"", name, "\", expected ", numToCheck, " found ", numOfParams)
+	}
+}
+
 func InitBuiltins(ds *dataStore) {
 	ds.builtins["print"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
 		Print(ds, params...)
-		return true, []dataType{{dataType: String, value: "\"(printing)\""}}
+		return true, []dataType{}
 	}
 	ds.builtins["+"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
 		return true, []dataType{Add(ds, params...)}
@@ -41,7 +53,7 @@ func InitBuiltins(ds *dataStore) {
 			toEval := PrepQuotesString(strVal)
 			hasReturn, toReturn := Eval(ds, Tokenize(toEval), scopes)
 			if !hasReturn {
-				return true, []dataType{{dataType: String, value: "\"(evaluating " + QuoteToQuoteLiteral(strVal) + ")\""}}
+				return false, []dataType{}
 			}
 			return true, toReturn
 		} else {
@@ -49,23 +61,19 @@ func InitBuiltins(ds *dataStore) {
 				strVal := v.value.(string)
 				Eval(ds, Tokenize(strVal), scopes)
 			}
-			toPrint := ""
-			for i, v := range params {
-				toPrint += GetStrValue(v)
-				if i < len(params)-1 {
-					toPrint += ", "
-				}
-			}
-			return true, []dataType{{dataType: String, value: "\"(evaluating " + QuoteToQuoteLiteral(toPrint) + ")\""}}
+			return false, []dataType{}
 		}
 	}
 	ds.builtins["var"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		if len(params) != 2 {
+			log.Fatal("Invalid number of parameters to \"var\". Expected 2 found ", len(params))
+		}
 		MakeVar(ds, scopes, params[0].value.(string), params[1], false)
-		return true, []dataType{{dataType: String, value: "\"(initializing " + QuoteToQuoteLiteral(params[0].value.(string)) + " to " + GetStrValue(params[1]) + ")\""}}
+		return false, []dataType{}
 	}
 	ds.builtins["const"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
 		MakeVar(ds, scopes, params[0].value.(string), params[1], true)
-		return true, []dataType{{dataType: String, value: "\"(initializing " + QuoteToQuoteLiteral(params[0].value.(string)) + " to " + GetStrValue(params[1]) + ")\""}}
+		return true, []dataType{}
 	}
 	ds.builtins["set"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
 		if _, ok := ds.vars[params[0].value.(string)]; !ok {
@@ -124,7 +132,7 @@ func InitBuiltins(ds *dataStore) {
 					return true, []dataType{{dataType: String, value: "\"(looping over " + GetStrValue(val) + ")\""}}
 				}
 			} else {
-				log.Fatal("Error in \"Loop\". Expected first param to be \"List\" or \"Int\", got:", dataTypes[val.dataType])
+				log.Fatal("Error in \"Loop\". Expected first param to be \"List\" or \"Int\", found ", dataTypes[val.dataType])
 			}
 		} else if len(params) == 4 {
 			ds.inLoop = true
@@ -428,5 +436,37 @@ func InitBuiltins(ds *dataStore) {
 		}
 		
 		return true, []dataType{GetValues(ds, params[0])}
+	}
+	ds.builtins["floor"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		if len(params) != 1 {
+			log.Fatal("Invalid number of parameters to \"floor\", expected 1 found ", len(params))
+		}
+
+		return true, []dataType{Floor(ds, params[0])}
+	}
+	ds.builtins["ceil"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		if len(params) != 1 {
+			log.Fatal("Invalid number of parameters to \"ceil\", expected 1 found ", len(params))
+		}
+
+		return true, []dataType{Ceil(ds, params[0])}
+	}
+	ds.builtins["float"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		if len(params) != 1 {
+			log.Fatal("Invalid number of parameters to \"float\", expected 1 found ", len(params))
+		}
+		return true, []dataType{CastFloat(ds, params[0])}
+	}
+	ds.builtins["int"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		if len(params) != 1 {
+			log.Fatal("Invalid number of parameters to \"int\", expected 1 found ", len(params))
+		}
+		return true, []dataType{CastInt(ds, params[0])}
+	}
+	ds.builtins["string"] = func(ds *dataStore, scopes int, params []dataType) (bool, []dataType) {
+		if len(params) != 1 {
+			log.Fatal("Invalid number of parameters to \"string\", expected 1 found ", len(params))
+		}
+		return true, []dataType{CastString(ds, params[0])}
 	}
 }

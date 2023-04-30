@@ -3,7 +3,9 @@
   5 "Buzz"
 ))
 
-(loop 100 i (body
+(var max (parse (scan-line)))
+
+(loop max i (body
   (var answer "")
   (var option-keys (keys options))
   (loop option-keys key (body

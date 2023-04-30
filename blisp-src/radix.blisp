@@ -1,0 +1,31 @@
+(func radix-sort nums max-length (body
+    (var arrs [])
+    (loop 10 i (body
+        (append arrs [])
+    ))
+    (loop max-length i (body
+        (loop nums num (body
+            (var index (% (int (floor (/ num (^ 10 i)))) 10))
+            (set arrs index (append (get arrs index) num))
+        ))
+        (set nums [])
+        (loop arrs i _ (body
+            (while (> (len (get arrs i)) 0) (body
+                (var new-arr (get arrs i))
+                (var val (shift new-arr))
+                (append nums val)
+                (set arrs i new-arr)
+            ))
+        ))
+    ))
+    (return nums)
+))
+
+(var nums [1 352 583 23 3452])
+(var max-length 4)
+
+(print nums)
+
+(set nums (radix-sort nums max-length))
+
+(print nums)

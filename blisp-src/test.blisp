@@ -1,3 +1,1 @@
-(func test (body (return 1)))
-
-(print (type (test)))
+(print (floor 2.3423))

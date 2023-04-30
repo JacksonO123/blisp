@@ -1,4 +1,4 @@
-# relative path names will be supported later
-(require "blisp-src/test.blisp")
-(test)
-# (print h)
+(func x y (body
+  (print y)
+))
+(x 2)

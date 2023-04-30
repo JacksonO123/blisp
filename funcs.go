@@ -66,10 +66,15 @@ var reserved []string = []string{
 	"is-letter",
 	"keys",
 	"values",
+	"floor",
+	"ceil",
+	"float",
+	"int",
+	"string",
 }
 
 func GetArr(tokens []token) (dataType, int) {
-	res := make([]dataType, 100)
+	res := []dataType{}
 	index := 0
 	for i := 1; i < len(tokens); i++ {
 		if tokens[i].tokenType == OpenBracket {
@@ -84,6 +89,7 @@ func GetArr(tokens []token) (dataType, int) {
 		}
 		index++
 	}
+	log.Fatal("Error, unable to find end of array.")
 	return dataType{dataType: Nil, value: nil}, 0
 }
 
@@ -94,7 +100,7 @@ func GetArrStr(data dataType) dataType {
 	arr := data.value.([]dataType)
 	for i, v := range arr {
 		if v.dataType == List {
-			res += GetArrStr(v.value.(dataType)).value.(string)
+			res += GetArrStr(v).value.(string)
 		} else {
 			res += fmt.Sprint(v.value)
 		}
@@ -120,7 +126,7 @@ func PrintArr(data dataType) {
 			}
 			toPrint = ""
 			items = 0
-			PrintArr(v.value.(dataType))
+			PrintArr(v)
 		} else {
 			if i > 0 {
 				toPrint += " "
@@ -1660,4 +1666,66 @@ func GetValues(ds *dataStore, obj dataType) dataType {
 		res = append(res, dataType{dataType: String, value: *key.attr})
 	}
 	return dataType{dataType: List, value: res}
+}
+
+func Floor(ds *dataStore, val dataType) dataType {
+	if val.dataType == Ident {
+		val = GetDsValue(ds, val)
+	}
+	if val.dataType == Int {
+		return val;
+	}
+	if val.dataType != Float {
+		log.Fatal("Error in \"floor\", expected \"Float\" found ", dataTypes[val.dataType])
+	}
+	return dataType{dataType: Float, value: math.Floor(val.value.(float64))}
+}
+
+func Ceil(ds *dataStore, val dataType) dataType {
+	if val.dataType == Ident {
+		val = GetDsValue(ds, val)
+	}
+	if val.dataType == Int {
+		return val;
+	}
+	if val.dataType != Float {
+		log.Fatal("Error in \"ceil\", expected \"Float\" found ", dataTypes[val.dataType])
+	}
+	return dataType{dataType: Float, value: math.Ceil(val.value.(float64))}
+}
+
+func CastFloat(ds *dataStore, val dataType) dataType {
+	if val.dataType == Ident {
+		val = GetDsValue(ds, val)
+	}
+	if val.dataType == Float {
+		return val
+	}
+	if val.dataType != Int {
+		log.Fatal("Error in \"float\", expected \"Int\" found ", dataTypes[val.dataType])
+	}
+	return dataType{dataType: Float, value: float64(val.value.(int))}
+}
+
+func CastInt(ds *dataStore, val dataType) dataType {
+	if val.dataType == Ident {
+		val = GetDsValue(ds, val)
+	}
+	if val.dataType == Int {
+		return val
+	}
+	if val.dataType != Float {
+		log.Fatal("Error in \"int\", expected \"Float\" found ", dataTypes[val.dataType])
+	}
+	return dataType{dataType: Int, value: int(val.value.(float64))}
+}
+
+func CastString(ds *dataStore, val dataType) dataType {
+	if val.dataType == Ident {
+		val = GetDsValue(ds, val)
+	}
+	if val.dataType == String {
+		return val
+	}
+	return dataType{dataType: String, value: fmt.Sprint(val.value)}
 }

@@ -21,7 +21,7 @@
     (return nums)
 ))
 
-(var nums [1 352 583 23 3452])
+(var nums [1 583 352 3452 23])
 (var max-length 4)
 
 (print nums)

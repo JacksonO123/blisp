@@ -165,7 +165,6 @@ func Print(ds *dataStore, params ...dataType) {
 	for i, v := range params {
 		if v.dataType == Ident {
 			v = GetDsValue(ds, v)
-			// fmt.Println(v)
 			if v.dataType == Ident {
 				log.Fatal("Unknown value: ", v.value)
 			}
@@ -481,6 +480,9 @@ func FreeFunc(ds *dataStore, name string) {
 func GetDsValue(ds *dataStore, val dataType) dataType {
 	if val.dataType == Ident {
 		if v, ok := ds.vars[val.value.(string)]; ok {
+			if len(v) == 0 {
+				return val
+			}
 			return v[len(v)-1].data
 		} else if v, ok := ds.funcs[val.value.(string)]; ok {
 			f := v[len(v)-1]
@@ -522,14 +524,12 @@ func GetFromValue(ds *dataStore, val dataType, index dataType) dataType {
 		return parts[index.value.(int)]
 	} else if val.dataType == Struct {
 		parts := val.value.([]structAttr)
-		fmt.Println("## parts", parts)
 		for i := 0; i < len(parts); i++ {
+			if index.dataType != Ident && index.dataType != Int && index.dataType != Float && index.dataType != String && index.dataType != Bool {
+				continue
+			}
 			if index.dataType == Ident {
-				fmt.Println(ds.vars)
 				index = GetDsValue(ds, index)
-				if index.dataType == Ident {
-					log.Fatal("Error in \"get\", unknown value ", index.value.(string))
-				}
 			}
 			if parts[i].name == fmt.Sprint(index.value) {
 				return *parts[i].attr
@@ -1362,7 +1362,6 @@ func CallProp(ds *dataStore, scopes int, params []dataType) *[]dataType {
 	if obj.dataType == Ident {
 		obj = GetDsValue(ds, obj)
 	}
-	fmt.Println(obj)
 	if obj.dataType != Struct {
 		log.Fatal("Error in \".\", expected \"Struct\" found ", dataTypes[obj.dataType])
 	}
@@ -1438,20 +1437,23 @@ func WhileLoop(ds *dataStore, scopes int, params []dataType) *[]dataType {
 		conditionP := Eval(ds, conditionTokens, scopes+1)
 		if conditionP != nil {
 			condition := *conditionP
-			if len(condition) != 1 {
-				log.Fatal("Error in \"while\", expected one return from condition, found ", len(condition))
-			}
 			if condition[0].dataType != Bool {
 				log.Fatal("Error in \"while\", expected \"Bool\" condition, found ", dataTypes[condition[0].dataType])
 			}
 			for condition[0].value.(bool) {
 				resP = Eval(ds, params[1].value.([]token), scopes+1)
-				if resP == nil {
-					conditionP = Eval(ds, conditionTokens, scopes+1)
+				if resP != nil {
+					res := *resP
+					if len(res) == 1 {
+						if res[0].dataType == BreakVal {
+							break
+						}
+						if res[0].dataType == ReturnVal {
+							return resP
+						}
+					}
 				}
-			}
-			if conditionP != nil {
-				log.Fatal("Error in \"while\", expected return from condition, found none")
+				condition = *Eval(ds, conditionTokens, scopes+1)
 			}
 		}
 	} else {

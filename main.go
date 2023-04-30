@@ -327,7 +327,6 @@ func Eval(ds *dataStore, code []token, scopes int) *[]dataType {
 				continue
 			}
 			fromCustom, valP := EvalFunc(ds, len(funcCall)+scopes, funcCall[len(funcCall)-1])
-			// fmt.Println(funcNames[len(funcNames)-1], fromCustom, valP, "\n")
 			RemoveScopedVars(ds, len(funcCall)+scopes)
 			if valP != nil {
 				val := *valP

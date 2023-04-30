@@ -81,7 +81,7 @@ func GetArr(tokens []token) (dataType, int) {
 			arr, indx := GetArr(tokens[i:])
 			i += indx + 1
 			index += 2
-			res = append(res, dataType{dataType: List, value: arr})
+			res = append(res, arr)
 		} else if tokens[i].tokenType == CloseBracket {
 			return dataType{dataType: List, value: res}, index
 		} else {
@@ -1255,18 +1255,11 @@ func Substr(ds *dataStore, str dataType, startIndex dataType, endIndex dataType)
 }
 
 func GetType(ds *dataStore, val dataType) string {
-	isIdent := false
 	if val.dataType == Ident {
-		isIdent = true
 		val = GetDsValue(ds, val)
 	}
 
-	str := ""
-	if isIdent {
-		str += "Identifier: "
-	}
-	str += dataTypes[val.dataType]
-	return str
+	return dataTypes[val.dataType]
 }
 
 func MakeStruct(ds *dataStore, params ...dataType) dataType {

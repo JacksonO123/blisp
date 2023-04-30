@@ -349,7 +349,7 @@ func Eval(ds *dataStore, code []token, scopes int) *[]dataType {
 				toReturn = valP // do stuff
 			}
 		} else if code[i].tokenType == OpenBracket {
-			arr, index := GetArr(code[i:])
+			arr, index := GetArr(code[i:]) // possibly eval here
 			funcCall[len(funcCall)-1] = append(funcCall[len(funcCall)-1], arr)
 			i += index + 1
 		} else if (code[i].tokenType == Identifier ||

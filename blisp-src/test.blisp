@@ -1,1 +1,6 @@
-(print (floor 2.3423))
+(var h [])
+
+(loop 1000000 i (body
+    (append h i)
+))
+(print h)

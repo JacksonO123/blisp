@@ -40,8 +40,8 @@ const (
 	Nil
 	Tokens
 	Struct
-	BreakVals  // []dataType
-	ReturnVals // []dataType
+	BreakVal  // dataType
+	ReturnVal // dataType
 )
 
 type dataType struct {
@@ -73,7 +73,7 @@ type dataStore struct {
 	funcs            map[string][]function
 	scopedFuncs      [][]string
 	scopedRedefFuncs [][]string
-	builtins         map[string]func(*dataStore, int, []dataType) (bool, []dataType)
+	builtins         map[string]func(*dataStore, int, []dataType) *[]dataType
 	inFunc           bool
 	inLoop           bool
 }
@@ -263,29 +263,28 @@ func GetDataTypeFromToken(t token) dataType {
 	return d
 }
 
-func EvalFunc(ds *dataStore, scopes int, info []dataType) (bool, bool, []dataType) {
+func EvalFunc(ds *dataStore, scopes int, info []dataType) (bool, *[]dataType) {
 	ds.inFunc = true
 	if info[0].dataType == Func {
-		hasReturn, returnValue := CallInlineFunc(ds, scopes, "lambda", info[0].value.(function), info[1:])
-		return true, hasReturn, returnValue
+		returnValue := CallInlineFunc(ds, scopes, "lambda", info[0].value.(function), info[1:])
+		return true, returnValue
 	} else if f, ok := ds.builtins[info[0].value.(string)]; ok {
-		h, v := f(ds, scopes, info[1:])
+		v := f(ds, scopes, info[1:])
 		isCustom := false
 		if info[0].value.(string) == "." {
 			isCustom = true
 		}
-		return isCustom, h, v
+		return isCustom, v
 	} else {
-		h, v := CallFunc(ds, scopes, info[0], info[1:])
-		return true, h, v
+		v := CallFunc(ds, scopes, info[0], info[1:])
+		return true, v
 	}
 }
 
-func Eval(ds *dataStore, code []token, scopes int) (bool, []dataType) {
+func Eval(ds *dataStore, code []token, scopes int) *[]dataType {
 	funcCall := [][]dataType{}
 	funcNames := []string{}
-	hasReturn := true
-	toReturn := []dataType{}
+	var toReturn *[]dataType = nil
 	reachedBlockEnd := false
 	for i := 0; i < len(code); i++ {
 		if len(funcNames) > 0 && funcNames[len(funcNames)-1] == "while" {
@@ -327,28 +326,30 @@ func Eval(ds *dataStore, code []token, scopes int) (bool, []dataType) {
 			if len(funcCall) == 0 {
 				continue
 			}
-			fromCustom, funcReturns, val := EvalFunc(ds, len(funcCall)+scopes, funcCall[len(funcCall)-1])
+			fromCustom, valP := EvalFunc(ds, len(funcCall)+scopes, funcCall[len(funcCall)-1])
 			RemoveScopedVars(ds, len(funcCall)+scopes)
-			if funcReturns && len(val) > 0 && (val[0].dataType == BreakVals || val[0].dataType == ReturnVals) {
-				if !fromCustom {
-					return funcReturns, val
-				} else {
-					val = val[0].value.([]dataType)
+			if valP != nil {
+				val := *valP
+				if len(val) > 0 && (val[0].dataType == BreakVal || val[0].dataType == ReturnVal) {
+					if !fromCustom {
+						return valP
+					} else {
+						valP = &[]dataType{val[0].value.(dataType)}
+					}
 				}
 			}
+
 			funcCall = funcCall[:len(funcCall)-1]
 			funcNames = funcNames[:len(funcNames)-1]
 			if len(funcCall) > 0 {
-				if funcReturns {
-					funcCall[len(funcCall)-1] = append(funcCall[len(funcCall)-1], val...)
+				if valP != nil {
+					funcCall[len(funcCall)-1] = append(funcCall[len(funcCall)-1], *valP...)
 				}
 			} else if len(funcCall) == 0 {
-				if hasReturn {
-					toReturn = val
-				}
+				toReturn = valP // do stuff
 			}
 		} else if code[i].tokenType == OpenBracket {
-			arr, index := GetArr(code[i:])
+			arr, index := GetArr(code[i:]) // possibly eval here
 			funcCall[len(funcCall)-1] = append(funcCall[len(funcCall)-1], arr)
 			i += index + 1
 		} else if (code[i].tokenType == Identifier ||
@@ -362,11 +363,10 @@ func Eval(ds *dataStore, code []token, scopes int) (bool, []dataType) {
 		if len(funcCall) == 0 {
 			reachedBlockEnd = true
 		} else if len(funcCall) > 0 && reachedBlockEnd {
-			hasReturn = false
-			toReturn = []dataType{}
+			toReturn = nil
 		}
 	}
-	return hasReturn, toReturn
+	return toReturn
 }
 
 var benchmark bool = false
@@ -382,7 +382,7 @@ func main() {
 	ds.scopedRedef = [][]string{}
 	ds.scopedFuncs = [][]string{}
 	ds.scopedRedefFuncs = [][]string{}
-	ds.builtins = make(map[string]func(*dataStore, int, []dataType) (bool, []dataType))
+	ds.builtins = make(map[string]func(*dataStore, int, []dataType) *[]dataType)
 	ds.inFunc = false
 	ds.inLoop = false
 	InitBuiltins(ds)
@@ -408,10 +408,8 @@ func main() {
 			if scanner.Scan() {
 				line = scanner.Text()
 			}
-			hasReturn, val := Eval(ds, Tokenize(line), 0)
-			if hasReturn {
-				fmt.Println(val)
-			}
+			val := Eval(ds, Tokenize(line), 0)
+			fmt.Println(val)
 		}
 	}
 	fmt.Println("Running [" + fileName + "]")

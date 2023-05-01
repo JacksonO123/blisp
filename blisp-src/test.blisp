@@ -1,6 +1,6 @@
 (var h [])
 
 (loop 1000000 i (body
-    (append h i)
+  (append h i)
 ))
 (print h)

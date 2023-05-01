@@ -1,0 +1,70 @@
+# does not not balance
+
+(func create-binary-tree-node val (body
+  (return
+    (struct
+      data val
+      left nil
+      right nil
+      add (func _ this comp val (body
+        (if (<= (comp (get this data) val) 0) (body
+          (if (eq (get this left) nil) (body
+            (set this left (create-binary-tree-node val))
+          ) (body
+            (. (get this left) add comp val)
+          ))
+        ) (body
+          (if (eq (get this right) nil) (body
+            (set this right (create-binary-tree-node val))
+          ) (body
+            (. (get this right) add comp val)
+          ))
+        ))
+      ))
+      print (func _ this depth (body
+        (print (concat "-- #" depth) (get this data))
+        (if (not (eq (get this left) nil)) (body
+          (print "<")
+          (. (get this left) print (+ depth 1))
+        ))
+        (if (not (eq (get this right) nil)) (body
+          (print ">")
+          (. (get this right) print (+ depth 1))
+        ))
+      ))
+    )
+  )
+))
+
+(func create-binary-tree (body
+  (return
+    (struct
+      root nil
+      add (func _ this comp val (body
+        (if (eq (get this root) nil) (body
+          (set this root (create-binary-tree-node val))
+        ) (body
+          (. (get this root) add comp val)
+        ))
+      ))
+      print (func _ this (body
+        (if (eq (get this root) nil) (body
+          (print "no nodes")
+        ) (body
+          (. (get this root) print 1)
+        ))
+      ))
+    )
+  )
+))
+
+(func comp x y (body
+  (return (- y x))
+))
+
+(var tree (create-binary-tree))
+(. tree add comp 3)
+(. tree add comp 4)
+(. tree add comp 1)
+(. tree add comp 6)
+(. tree print)

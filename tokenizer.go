@@ -92,7 +92,7 @@ func GetToken(val string) token {
 
 func GetString(str string) (string, int) {
 	for i, v := range str {
-		if i > 0 && v == '"' && str[i-1] != '\\' {
+		if v == '"' && ((i > 0 && str[i-1] != '\\') || (i > 1 && str[i-1] == '\\' && str[i-2] == '\\')) {
 			i++
 			return str[:i], i
 		}

@@ -1,9 +1,9 @@
 class Blisp < Formula
   desc "Blisp interpreter"
   homepage "https://github.com/JacksonO123/blisp"
-  url "https://github.com/JacksonO123/blisp"
-  sha256 "fba6f9bef983449aa7e7cdece67644f9c265fdde8761191f28ced73bd2c4c225"
-  version "1.0.0"
+  url "https://github.com/JacksonO123/blisp/releases/download/test/blisp-0-1-0.tar.gz"
+  sha256 "e9af8adacc2112777e1289466250048337f012352e6519da8693231361304dcc"
+  version "0.1.0"
 
   depends_on "go" => :build
 

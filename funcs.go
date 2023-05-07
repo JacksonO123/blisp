@@ -1110,8 +1110,8 @@ func CallFunc(ds *dataStore, scopes int, name dataType, params []dataType) *[]da
 					log.Fatal("Unknown function: \"", newName.value, "\"")
 				}
 				newName.dataType = Ident
-				if f, ok := ds.builtins[newName.value.(string)]; ok {
-					return f(ds, scopes, params)
+				if b := IsBuiltin(ds, newName.value.(string)); b != nil {
+					return b.fn(ds, scopes, params)
 				} else {
 					return CallFunc(ds, scopes, newName, params)
 				}

@@ -63,8 +63,11 @@
 ))
 
 (var tree (create-binary-tree))
-(. tree add comp 3)
-(. tree add comp 4)
-(. tree add comp 1)
-(. tree add comp 6)
+# (. tree add comp 3)
+# (. tree add comp 4)
+# (. tree add comp 1)
+# (. tree add comp 6)
+(loop 1000 i (body
+  (. tree add comp i)
+))
 (. tree print)

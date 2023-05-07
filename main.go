@@ -66,6 +66,11 @@ type structAttr struct {
 	attr *dataType
 }
 
+type builtin struct {
+	name string
+	fn   func(*dataStore, int, []dataType) *[]dataType
+}
+
 type dataStore struct {
 	vars             map[string][]variable
 	scopedVars       [][]string
@@ -73,7 +78,7 @@ type dataStore struct {
 	funcs            map[string][]function
 	scopedFuncs      [][]string
 	scopedRedefFuncs [][]string
-	builtins         map[string]func(*dataStore, int, []dataType) *[]dataType
+	builtins         []builtin
 	inFunc           bool
 	inLoop           bool
 }
@@ -263,22 +268,38 @@ func GetDataTypeFromToken(t token) dataType {
 	return d
 }
 
+func IsBuiltin(ds *dataStore, name string) *builtin {
+	for _, v := range ds.builtins {
+		if v.name == name {
+			return &v
+		}
+	}
+	return nil
+}
+
 func EvalFunc(ds *dataStore, scopes int, info []dataType) (bool, *[]dataType) {
 	ds.inFunc = true
 	if info[0].dataType == Func {
 		returnValue := CallInlineFunc(ds, scopes, "lambda", info[0].value.(function), info[1:])
 		return true, returnValue
-	} else if f, ok := ds.builtins[info[0].value.(string)]; ok {
-		v := f(ds, scopes, info[1:])
+	} else if b := IsBuiltin(ds, info[0].value.(string)); b != nil {
 		isCustom := false
-		if info[0].value.(string) == "." {
+		if b.name == "." {
 			isCustom = true
 		}
-		return isCustom, v
+		return isCustom, b.fn(ds, scopes, info[1:])
 	} else {
 		v := CallFunc(ds, scopes, info[0], info[1:])
 		return true, v
 	}
+
+	// f, ok := ds.builtins[info[0].value.(string)]; ok {
+	// v := f(ds, scopes, info[1:])
+	// isCustom := false
+	// if info[0].value.(string) == "." {
+	// 	isCustom = true
+	// }
+	// return isCustom, v
 }
 
 func Eval(ds *dataStore, code []token, scopes int) *[]dataType {
@@ -382,7 +403,7 @@ func main() {
 	ds.scopedRedef = [][]string{}
 	ds.scopedFuncs = [][]string{}
 	ds.scopedRedefFuncs = [][]string{}
-	ds.builtins = make(map[string]func(*dataStore, int, []dataType) *[]dataType)
+	ds.builtins = []builtin{}
 	ds.inFunc = false
 	ds.inLoop = false
 	InitBuiltins(ds)
